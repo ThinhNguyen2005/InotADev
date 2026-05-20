@@ -65,10 +65,10 @@ Sau khi cài, đặt biến môi trường (PowerShell):
 
 ### 2.2 Clone Dobby
 
-Module dùng [Dobby](https://github.com/asLody/Dobby) làm engine inline‑hook.
+Module dùng [Dobby](https://github.com/jmpews/Dobby) làm engine inline‑hook.
 
 ```powershell
-git clone --depth=1 https://github.com/asLody/Dobby external/Dobby
+git clone --depth=1 https://github.com/jmpews/Dobby.git external/Dobby
 ```
 
 Nếu bỏ qua bước này, `build.ps1` sẽ tự clone giúp bạn.

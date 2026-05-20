@@ -1,22 +1,20 @@
 #include "hook_properties.hpp"
 #include "logging.hpp"
 
-#include <dobby.h>
 #include <dlfcn.h>
 #include <string.h>
 #include <sys/system_properties.h>
 
 #include <atomic>
-#include <string_view>
 
 namespace hdm::hooks {
 
 namespace {
 
 /* ---------------------------------------------------------------------------
- * Bảng spoof property. Dùng mảng static thay vì std::unordered_map để:
- *   - Không cần allocator (an toàn khi gọi rất sớm trong app process).
+ * Bảng spoof property. Dùng mảng static thay cho map để tránh allocator nóng:
  *   - Số entry ít, linear search còn nhanh hơn hashing.
+ *   - Không phụ thuộc heap -> an toàn khi gọi rất sớm trong vòng đời process.
  * ------------------------------------------------------------------------- */
 struct PropOverride {
     const char *key;
@@ -40,7 +38,6 @@ constexpr PropOverride kOverrides[] = {
     {"service.adb.tls.port",         ""},
 };
 
-/* Tìm override theo key. nullptr nếu không match. */
 inline const char *find_override(const char *key) {
     if (!key) return nullptr;
     for (const auto &o : kOverrides) {
@@ -50,12 +47,17 @@ inline const char *find_override(const char *key) {
 }
 
 /* ---------------------------------------------------------------------------
- * 1) __system_property_get(const char *name, char *value) -> int
- *    Trả về số ký tự ghi vào value (không tính '\0').
+ * Trampolines tới hàm gốc. Zygisk PLT engine ghi địa chỉ gốc vào pointer ta
+ * cung cấp khi commit thành công.
  * ------------------------------------------------------------------------- */
-using sp_get_t = int (*)(const char *, char *);
-sp_get_t orig_sp_get = nullptr;
+using sp_get_t       = int (*)(const char *, char *);
+using prop_read_cb_t = void (*)(void *, const char *, const char *, uint32_t);
+using sp_read_cb_t   = void (*)(const prop_info *, prop_read_cb_t, void *);
 
+sp_get_t      orig_sp_get     = nullptr;
+sp_read_cb_t  orig_sp_read_cb = nullptr;
+
+/* 1) __system_property_get(name, value) */
 int hook_sp_get(const char *name, char *value) {
     if (const char *spoof = find_override(name)) {
         size_t len = strlen(spoof);
@@ -64,32 +66,22 @@ int hook_sp_get(const char *name, char *value) {
         value[len] = '\0';
         return static_cast<int>(len);
     }
-    return orig_sp_get ? orig_sp_get(name, value) : 0;
+    /* Fallback gọi qua dlsym để bao trường hợp PLT hook không cover được
+     * (vd: caller nội tại trong libc.so). */
+    if (orig_sp_get) return orig_sp_get(name, value);
+    auto *fb = reinterpret_cast<sp_get_t>(
+            dlsym(RTLD_DEFAULT, "__system_property_get"));
+    return fb ? fb(name, value) : 0;
 }
 
-/* ---------------------------------------------------------------------------
- * 2) __system_property_read_callback(const prop_info *pi,
- *                                    void (*cb)(void *cookie,
- *                                               const char *name,
- *                                               const char *value,
- *                                               uint32_t serial),
- *                                    void *cookie)
- *
- *    Đây là API "modern" mà bionic và nhiều process zygote-spawned dùng. Chúng
- *    ta intercept callback: nếu name match override, đổi value trước khi gọi
- *    callback gốc của caller.
- * ------------------------------------------------------------------------- */
-using prop_read_cb_t  = void (*)(void *, const char *, const char *, uint32_t);
-using sp_read_cb_t    = void (*)(const prop_info *, prop_read_cb_t, void *);
-sp_read_cb_t orig_sp_read_cb = nullptr;
-
-/* Wrapper cookie để truyền callback gốc + cookie gốc qua trampoline. */
+/* 2) __system_property_read_callback - intercept callback của caller. */
 struct CbWrap {
     prop_read_cb_t  user_cb;
     void           *user_cookie;
 };
 
-void trampoline_cb(void *cookie, const char *name, const char *value, uint32_t serial) {
+void trampoline_cb(void *cookie, const char *name,
+                   const char *value, uint32_t serial) {
     auto *w = static_cast<CbWrap *>(cookie);
     if (const char *spoof = find_override(name)) {
         w->user_cb(w->user_cookie, name, spoof, serial);
@@ -99,48 +91,51 @@ void trampoline_cb(void *cookie, const char *name, const char *value, uint32_t s
 }
 
 void hook_sp_read_cb(const prop_info *pi, prop_read_cb_t user_cb, void *user_cookie) {
-    if (!orig_sp_read_cb || !user_cb) return;
-
-    /* CbWrap đặt trên stack -> tự release sau khi orig trả về.
-     * Bionic gọi callback đồng bộ trong cùng frame nên an toàn. */
+    if (!user_cb) return;
     CbWrap wrap{user_cb, user_cookie};
-    orig_sp_read_cb(pi, trampoline_cb, &wrap);
-}
 
-/* ---------------------------------------------------------------------------
- * Cài hook bằng Dobby. Dùng dlsym vì symbol được libc export (không cần
- * giải mã ELF), gọn và đáng tin cậy.
- * ------------------------------------------------------------------------- */
-std::atomic<bool> installed{false};
-
-void install_one(const char *name, void *replacement, void **out_orig) {
-    void *target = dlsym(RTLD_DEFAULT, name);
-    if (!target) {
-        LOGW("dlsym(%s) thất bại - bỏ qua", name);
+    if (orig_sp_read_cb) {
+        orig_sp_read_cb(pi, trampoline_cb, &wrap);
         return;
     }
-    int rc = DobbyHook(target, replacement, out_orig);
-    if (rc != 0) {
-        LOGE("DobbyHook(%s) thất bại rc=%d", name, rc);
-        *out_orig = nullptr;
-    } else {
-        LOGD("Hook %s -> %p (orig=%p)", name, replacement, *out_orig);
-    }
+    auto *fb = reinterpret_cast<sp_read_cb_t>(
+            dlsym(RTLD_DEFAULT, "__system_property_read_callback"));
+    if (fb) fb(pi, trampoline_cb, &wrap);
 }
+
+std::atomic<bool> installed{false};
 
 } // namespace
 
-void install_property_hooks() {
+void install_property_hooks(zygisk::Api *api) {
+    if (!api) return;
     bool expected = false;
     if (!installed.compare_exchange_strong(expected, true)) return;
 
-    install_one("__system_property_get",
-                reinterpret_cast<void *>(&hook_sp_get),
-                reinterpret_cast<void **>(&orig_sp_get));
+    /* Zygisk PLT-hook API:
+     *   pltHookRegister(dev, ino, symbol, replace, &backup)
+     *
+     * Cách Magisk loader implement: nếu dev=0 và ino=0, áp dụng cho TẤT CẢ
+     * shared object đã load - đúng như nhu cầu của ta.
+     *
+     * Không cần lo về thread-safety của PLT page: loader đã mprotect và đảm
+     * bảo atomic write.
+     */
+    api->pltHookRegister(0, 0, "__system_property_get",
+                         reinterpret_cast<void *>(&hook_sp_get),
+                         reinterpret_cast<void **>(&orig_sp_get));
 
-    install_one("__system_property_read_callback",
-                reinterpret_cast<void *>(&hook_sp_read_cb),
-                reinterpret_cast<void **>(&orig_sp_read_cb));
+    api->pltHookRegister(0, 0, "__system_property_read_callback",
+                         reinterpret_cast<void *>(&hook_sp_read_cb),
+                         reinterpret_cast<void **>(&orig_sp_read_cb));
+
+    if (!api->pltHookCommit()) {
+        LOGE("pltHookCommit thất bại - properties hooks không hoạt động");
+        installed.store(false);
+        return;
+    }
+    LOGI("Property PLT hooks installed (orig_get=%p, orig_cb=%p)",
+         orig_sp_get, orig_sp_read_cb);
 }
 
 } // namespace hdm::hooks

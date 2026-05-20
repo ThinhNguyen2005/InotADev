@@ -69,14 +69,11 @@ private:
     void try_install_hooks() {
         /* Bọc trong khối try-catch không khả dụng (đã -fno-exceptions),
          * nên chia làm 2 bước: log thận trọng + idempotent. */
-        hdm::hooks::install_property_hooks();
+        hdm::hooks::install_property_hooks(api_);
         hdm::hooks::install_settings_hooks(env_);
 
-        /* Sau khi hook xong, nếu module không cần state runtime nữa thì có thể
-         * giữ nguyên trong memory (KHÔNG dlclose) để các trampoline còn sống.
-         * DobbyHook tạo trampoline trong heap thuộc lib này -> nếu DLCLOSE
-         * sẽ unmap pages -> SIGSEGV khi target gọi tới. Vì vậy dứt khoát
-         * KHÔNG set DLCLOSE_MODULE_LIBRARY ở nhánh này. */
+        /* Sau khi hook xong, KHÔNG dlclose module: PLT entries trỏ về function
+         * trong .so này, unload sẽ dẫn đến SIGSEGV ở caller tiếp theo. */
     }
 
     Api     *api_         = nullptr;

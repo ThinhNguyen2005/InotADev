@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Build & đóng gói module Zygisk HideDevMode cho 4 ABI.
 .DESCRIPTION
@@ -42,9 +42,35 @@ if (-not $NdkPath -or -not (Test-Path $NdkPath)) {
 }
 Write-Host "Sử dụng NDK: $NdkPath" -ForegroundColor Cyan
 
+# Tìm cmake / ninja: ưu tiên PATH, fallback sang Android SDK cmake bundle.
+function Resolve-Tool([string]$name) {
+    $cmd = Get-Command $name -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    $sdkRoots = @(
+        "$env:LOCALAPPDATA\Android\Sdk\cmake",
+        "$env:USERPROFILE\AppData\Local\Android\Sdk\cmake"
+    )
+    foreach ($r in $sdkRoots) {
+        if (-not (Test-Path $r)) { continue }
+        $latest = Get-ChildItem $r -Directory | Sort-Object Name -Descending | Select-Object -First 1
+        if ($latest) {
+            $exe = Join-Path $latest.FullName "bin\$name.exe"
+            if (Test-Path $exe) { return $exe }
+        }
+    }
+    return $null
+}
+
+$cmakeExe = Resolve-Tool 'cmake'
+$ninjaExe = Resolve-Tool 'ninja'
+if (-not $cmakeExe) { throw "Không tìm thấy cmake. Cài qua Android Studio SDK Manager hoặc thêm vào PATH." }
+if (-not $ninjaExe) { throw "Không tìm thấy ninja. Cài qua Android Studio SDK Manager hoặc thêm vào PATH." }
+Write-Host "cmake: $cmakeExe"  -ForegroundColor Cyan
+Write-Host "ninja: $ninjaExe"  -ForegroundColor Cyan
+
 if (-not (Test-Path "$root\external\Dobby\CMakeLists.txt")) {
     Write-Host "Đang clone Dobby..." -ForegroundColor Yellow
-    & git clone --depth=1 https://github.com/asLody/Dobby "$root\external\Dobby"
+    & git clone --depth=1 https://github.com/jmpews/Dobby.git "$root\external\Dobby"
     if ($LASTEXITCODE -ne 0) { throw "git clone Dobby thất bại" }
 }
 
@@ -62,18 +88,19 @@ foreach ($abi in $ABIs) {
     $bd = Join-Path $root "build\$abi"
     New-Item -ItemType Directory -Force $bd | Out-Null
 
-    & cmake `
+    & $cmakeExe `
         -S "$root\jni" `
         -B  $bd `
         -G  "Ninja" `
-        -DCMAKE_TOOLCHAIN_FILE="$toolchain" `
-        -DANDROID_ABI=$abi `
-        -DANDROID_PLATFORM="android-$ApiLevel" `
-        -DANDROID_STL=c++_static `
-        -DCMAKE_BUILD_TYPE=$BuildType
+        "-DCMAKE_MAKE_PROGRAM=$ninjaExe" `
+        "-DCMAKE_TOOLCHAIN_FILE=$toolchain" `
+        "-DANDROID_ABI=$abi" `
+        "-DANDROID_PLATFORM=android-$ApiLevel" `
+        "-DANDROID_STL=c++_static" `
+        "-DCMAKE_BUILD_TYPE=$BuildType"
     if ($LASTEXITCODE -ne 0) { throw "cmake configure $abi thất bại" }
 
-    & cmake --build $bd --config $BuildType --parallel
+    & $cmakeExe --build $bd --config $BuildType --parallel
     if ($LASTEXITCODE -ne 0) { throw "build $abi thất bại" }
 
     $so = Join-Path $bd "libzygisk_hide_devmode.so"
