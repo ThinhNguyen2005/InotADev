@@ -1,7 +1,7 @@
 id=hide_devmode
 name=HideDevMode (Zygisk)
-version=v1.0.0
-versionCode=10000
+version=v1.1.0
+versionCode=10100
 author=InotADev
-description=Ẩn Developer Options + USB/Wifi Debugging cục bộ trong các app mục tiêu thông qua Zygisk hooks (libc properties + Settings JNI). Tương thích Zygisk-next / KernelSU.
+description=[WebUI] Ẩn Developer Options + USB/Wifi Debugging cục bộ trong các app mục tiêu thông qua Zygisk hooks (libc properties + Settings JNI). Tương thích Zygisk-Next / KernelSU.
 updateJson=

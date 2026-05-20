@@ -103,9 +103,19 @@ foreach ($abi in $ABIs) {
     & $cmakeExe --build $bd --config $BuildType --parallel
     if ($LASTEXITCODE -ne 0) { throw "build $abi thất bại" }
 
+    # Zygisk loader expect tên file theo Magisk convention: arm64.so / arm.so /
+    # x86.so / x86_64.so. KHÔNG phải tên ABI của NDK (arm64-v8a, armeabi-v7a).
+    # Sai naming -> loader silently skip -> module không xuất hiện trong UI.
+    $zygiskName = switch ($abi) {
+        'arm64-v8a'   { 'arm64' }
+        'armeabi-v7a' { 'arm' }
+        'x86_64'      { 'x86_64' }
+        'x86'         { 'x86' }
+        default       { $abi }
+    }
     $so = Join-Path $bd "libzygisk_hide_devmode.so"
-    Copy-Item $so (Join-Path $zygiskDir "$abi.so") -Force
-    Write-Host "   produced: $abi.so" -ForegroundColor DarkGray
+    Copy-Item $so (Join-Path $zygiskDir "$zygiskName.so") -Force
+    Write-Host "   produced: zygisk/$zygiskName.so" -ForegroundColor DarkGray
 }
 
 # ---- Lắp ráp module ---------------------------------------------------------
@@ -128,7 +138,29 @@ $dist = Join-Path $root "dist"
 New-Item -ItemType Directory -Force $dist | Out-Null
 $zip = Join-Path $dist "hide_devmode.zip"
 Remove-Item -Force $zip -ErrorAction SilentlyContinue
-Compress-Archive -Path "$stage\*" -DestinationPath $zip -CompressionLevel Optimal
+
+# QUAN TRỌNG: Compress-Archive trên Windows PS 5.1 ghi entry với '\' -> Magisk
+# /KernelSU không đọc được. Dùng ZipArchive API trực tiếp với separator '/'.
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+$fs = [System.IO.File]::Open($zip, [System.IO.FileMode]::Create)
+$archive = New-Object System.IO.Compression.ZipArchive($fs, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+    $stageFull = (Resolve-Path $stage).Path
+    Get-ChildItem -Path $stage -Recurse -File | ForEach-Object {
+        $rel = $_.FullName.Substring($stageFull.Length + 1) -replace '\\','/'
+        $entry = $archive.CreateEntry($rel, [System.IO.Compression.CompressionLevel]::Optimal)
+        $es = $entry.Open()
+        try {
+            $bytes = [System.IO.File]::ReadAllBytes($_.FullName)
+            $es.Write($bytes, 0, $bytes.Length)
+        } finally { $es.Dispose() }
+    }
+} finally {
+    $archive.Dispose()
+    $fs.Dispose()
+}
 
 Write-Host "`n✔ Hoàn tất: $zip" -ForegroundColor Green
 Write-Host "Flash bằng Magisk Manager hoặc KernelSU Manager." -ForegroundColor Green

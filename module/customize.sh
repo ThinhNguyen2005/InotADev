@@ -38,3 +38,9 @@ fi
 
 set_perm_recursive $MODPATH 0 0 0755 0644
 set_perm $MODPATH/system/etc/hide_devmode/targets.txt 0 0 0644
+
+# Web UI assets — manager đọc từ $MODPATH/webroot/index.html
+if [ -d "$MODPATH/webroot" ]; then
+    set_perm_recursive $MODPATH/webroot 0 0 0755 0644
+    ui_print "- WebUI sẵn sàng. Mở trong KernelSU/APatch Manager."
+fi
