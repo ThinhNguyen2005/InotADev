@@ -1,0 +1,19 @@
+# Build artifacts
+build/
+dist/
+*.o
+*.so
+*.a
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.cxx/
+
+# External deps fetched at build time
+external/Dobby/
+
+# OS
+Thumbs.db
+.DS_Store
