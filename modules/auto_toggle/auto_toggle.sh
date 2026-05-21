@@ -1,32 +1,18 @@
 #!/system/bin/sh
-TAG=auto_toggle
 PERSIST=/data/adb/auto_toggle
 RUNTIME=$PERSIST/runtime
 LOCK=$PERSIST/lock.pid
-LOGFILE=$PERSIST/log.txt
 
 mkdir -p "$PERSIST"
-
-log_msg() {
-    log -t "$TAG" "$1"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOGFILE"
-    if [ "$(wc -l < "$LOGFILE" 2>/dev/null)" -gt 100 ]; then
-        tail -n 50 "$LOGFILE" > "$PERSIST/log.tmp"
-        mv "$PERSIST/log.tmp" "$LOGFILE"
-    fi
-}
 
 # Đợi hệ thống Android khởi động hoàn tất
 while [ "$(getprop sys.boot_completed)" != "1" ]; do
     sleep 2
 done
 
-log_msg "System boot completed. Initializing AutoToggle daemon (pid=$$)..."
-
 if [ -f "$LOCK" ]; then
     pid=$(cat "$LOCK" 2>/dev/null)
     if [ -n "$pid" ] && [ -d "/proc/$pid" ]; then
-        log_msg "Daemon already running at pid=$pid. Exiting."
         exit 0
     fi
 fi
@@ -39,7 +25,6 @@ is_usb_connected() {
             read -r s < "$f" 2>/dev/null
             case "$s" in
                 [Cc]onfigured*|[Aa]ddressed*)
-                    log_msg "is_usb_connected: UDC state is '$s' (PC connected)"
                     return 0
                     ;;
             esac
@@ -50,7 +35,6 @@ is_usb_connected() {
         read -r s < /sys/class/android_usb/android0/state 2>/dev/null
         case "$s" in
             [Cc]onfigured*|[Cc]onnected*)
-                log_msg "is_usb_connected: android_usb state is '$s' (PC connected)"
                 return 0
                 ;;
         esac
@@ -61,13 +45,11 @@ is_usb_connected() {
         ""|none|charging|None|Charging)
             ;;
         *)
-            log_msg "is_usb_connected: sys.usb.state is '$usb_state' (PC connected)"
             return 0
             ;;
     esac
 
     if dumpsys usb 2>/dev/null | grep -iqE 'connected=true|mconnected=true|connected: true'; then
-        log_msg "is_usb_connected: dumpsys usb reports connected=true (PC connected)"
         return 0
     fi
 
@@ -101,15 +83,17 @@ is_charging() {
     return 1
 }
 
+MODDIR=${0%/*}
+
 apply_on() {
     current_adb=$(settings get global adb_enabled 2>/dev/null)
     if [ "$current_adb" != "1" ]; then
         settings put global adb_enabled 1 2>/dev/null
         settings put global development_settings_enabled 1 2>/dev/null
         start adbd 2>/dev/null
-        log_msg "apply_on: ADB enabled successfully"
     fi
     echo "on|usb|$(date +%s)" > "$RUNTIME"
+    MODPATH="$MODDIR" sh "$MODDIR/update_status.sh" 2>/dev/null &
 }
 
 apply_off() {
@@ -118,9 +102,9 @@ apply_off() {
         settings put global adb_enabled 0 2>/dev/null
         settings put global development_settings_enabled 0 2>/dev/null
         stop adbd 2>/dev/null
-        log_msg "apply_off: ADB disabled successfully"
     fi
     echo "off|-|$(date +%s)" > "$RUNTIME"
+    MODPATH="$MODDIR" sh "$MODDIR/update_status.sh" 2>/dev/null &
 }
 
 LAST_CHARGING=0
@@ -128,12 +112,10 @@ CHECK_ACTIVE=false
 CHARGE_START_TIME=0
 
 if is_charging; then
-    log_msg "Initial state: Charging. Starting USB detection..."
     LAST_CHARGING=1
     CHARGE_START_TIME=$(date +%s)
     CHECK_ACTIVE=true
 else
-    log_msg "Initial state: On Battery. Ensuring ADB is off."
     apply_off
 fi
 
@@ -145,13 +127,11 @@ while true; do
     fi
 
     if [ "$CURRENT_CHARGING" -eq 1 ] && [ "$LAST_CHARGING" -eq 0 ]; then
-        log_msg "Power connected. Starting USB detection window..."
         CHARGE_START_TIME=$(date +%s)
         CHECK_ACTIVE=true
     fi
 
     if [ "$CURRENT_CHARGING" -eq 0 ] && [ "$LAST_CHARGING" -eq 1 ]; then
-        log_msg "Power disconnected. Disabling ADB immediately."
         apply_off
         CHECK_ACTIVE=false
     fi
@@ -160,14 +140,12 @@ while true; do
 
     if [ "$CURRENT_CHARGING" -eq 1 ] && [ "$CHECK_ACTIVE" = "true" ]; then
         if is_usb_connected; then
-            log_msg "PC USB connection verified!"
             apply_on
             CHECK_ACTIVE=false
         else
             NOW=$(date +%s)
             ELAPSED=$((NOW - CHARGE_START_TIME))
             if [ "$ELAPSED" -gt 15 ]; then
-                log_msg "No PC host detected after 15s. Treating as AC charger."
                 apply_off
                 CHECK_ACTIVE=false
             fi
