@@ -56,6 +56,9 @@ async function detectUSBState() {
         `  s=$(cat /sys/class/power_supply/battery/status 2>/dev/null | tr -d '[:space:]' | tr 'A-Z' 'a-z'); ` +
         `  if [ "$s" = "charging" ] || [ "$s" = "full" ]; then is_ch=1; fi; ` +
         `fi; ` +
+        `if [ "$is_ch" -eq 0 ] && dumpsys battery 2>/dev/null | grep -iqE 'ac powered: true|usb powered: true|status: charging|status: full'; then ` +
+        `  is_ch=1; ` +
+        `fi; ` +
         `echo "$is_ch"`
     );
     
@@ -67,13 +70,35 @@ async function detectUSBState() {
     // 2. Nếu đang sạc, kiểm tra xem có kết nối dữ liệu PC không
     const rPC = await bridge.exec(
         `is_pc=0; ` +
-        `for f in /sys/class/udc/*/state; do ` +
-        `  s=$(cat "$f" 2>/dev/null | tr -d '[:space:]' | tr 'A-Z' 'a-z'); ` +
-        `  if [ "$s" = "configured" ] || [ "$s" = "addressed" ]; then is_pc=1; break; fi; ` +
+        `for f in /sys/class/power_supply/usb/type /sys/class/power_supply/usb/usb_type /sys/class/power_supply/usb/real_type; do ` +
+        `  if [ -r "$f" ]; then ` +
+        `    s=$(cat "$f" 2>/dev/null | tr -d '[:space:]' | tr 'A-Z' 'a-z'); ` +
+        `    if [ "$s" = "usb" ] || [ "$s" = "usb_sdp" ] || [ "$s" = "usb_cdp" ] || [ "$s" = "sdp" ] || [ "$s" = "cdp" ]; then ` +
+        `      is_pc=1; break; ` +
+        `    fi; ` +
+        `  fi; ` +
         `done; ` +
+        `if [ "$is_pc" -eq 0 ]; then ` +
+        `  if dumpsys battery 2>/dev/null | grep -iq 'USB powered: true' && dumpsys battery 2>/dev/null | grep -iq 'AC powered: false'; then ` +
+        `    is_pc=1; ` +
+        `  fi; ` +
+        `fi; ` +
+        `if [ "$is_pc" -eq 0 ]; then ` +
+        `  for f in /sys/class/udc/*/state; do ` +
+        `    s=$(cat "$f" 2>/dev/null | tr -d '[:space:]' | tr 'A-Z' 'a-z'); ` +
+        `    if [ "$s" = "configured" ] || [ "$s" = "addressed" ]; then is_pc=1; break; fi; ` +
+        `  done; ` +
+        `fi; ` +
+        `if [ "$is_pc" -eq 0 ] && [ -r /sys/class/android_usb/android0/state ]; then ` +
+        `  s=$(cat /sys/class/android_usb/android0/state 2>/dev/null | tr -d '[:space:]' | tr 'A-Z' 'a-z'); ` +
+        `  if [ "$s" = "configured" ] || [ "$s" = "connected" ]; then is_pc=1; fi; ` +
+        `fi; ` +
         `if [ "$is_pc" -eq 0 ]; then ` +
         `  s=$(getprop sys.usb.state 2>/dev/null | tr -d '[:space:]' | tr 'A-Z' 'a-z'); ` +
         `  if [ -n "$s" ] && [ "$s" != "none" ] && [ "$s" != "charging" ]; then is_pc=1; fi; ` +
+        `fi; ` +
+        `if [ "$is_pc" -eq 0 ] && dumpsys usb 2>/dev/null | grep -iqE 'connected=true|mconnected=true|connected: true'; then ` +
+        `  is_pc=1; ` +
         `fi; ` +
         `echo "$is_pc"`
     );
