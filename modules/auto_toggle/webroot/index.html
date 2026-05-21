@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>AutoToggle ADB Monitor</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+    <div class="brand">
+        <div class="logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 2v6h4l-6 8v-6H6l6-8Zm-6 18h12v2H6z"/></svg>
+        </div>
+        <div>
+            <h1 id="module-name">AutoToggle ADB</h1>
+            <p class="subtitle" id="module-version">Monitor & Diagnostics</p>
+        </div>
+    </div>
+    <button id="btn-reload" class="icon-btn" title="Làm mới trạng thái" aria-label="Làm mới trạng thái">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 4V1L8 5l4 4V6c3.3 0 6 2.7 6 6 0 1-.3 2-.7 2.8l1.5 1.5C19.5 15.1 20 13.6 20 12c0-4.4-3.6-8-8-8Zm0 14c-3.3 0-6-2.7-6-6 0-1 .3-2 .7-2.8L5.2 7.7C4.5 8.9 4 10.4 4 12c0 4.4 3.6 8 8 8v3l4-4-4-4v3Z"/></svg>
+    </button>
+</header>
+
+<main>
+    <!-- BẢNG ĐIỀU KHIỂN TRẠNG THÁI -->
+    <section class="card">
+        <div class="status-row">
+            <span class="status-label">Trạng thái Daemon</span>
+            <span id="daemon-pill" class="pill pill-loading">Đang kiểm tra…</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Kết nối USB (Phần cứng)</span>
+            <span id="usb-pill" class="pill pill-mute">—</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Trạng thái ADB (Hệ thống)</span>
+            <span id="adb-pill" class="pill pill-mute">—</span>
+        </div>
+    </section>
+
+    <!-- NGUYÊN LÝ HOẠT ĐỘNG SIÊU TIẾT KIỆM PIN -->
+    <section class="card hint">
+        <h2>⚡ Nguyên lý tự động & Tiết kiệm pin 100%</h2>
+        <p class="row-desc">
+            Module giám sát nguồn sạc phần cứng. Khi không sạc, hệ thống ở chế độ <strong>ngủ đông hoàn toàn (0% pin)</strong>. 
+            Khi cắm vào Máy tính (PC), hệ thống phát hiện bắt tay USB và tự động <strong>BẬT ADB</strong>. 
+            Khi cắm vào củ sạc thường hoặc rút sạc, ADB được tự động <strong>TẮT hoàn toàn</strong> để vượt qua kiểm tra của mọi app ngân hàng!
+        </p>
+    </section>
+
+    <!-- HÀNH ĐỘNG HỆ THỐNG -->
+    <section class="card">
+        <h2>Công cụ chẩn đoán</h2>
+        <div class="action-grid">
+            <button id="btn-toggle-adb" class="primary-btn">Bật/Tắt ADB Thủ Công</button>
+            <button id="btn-clear-logs" class="ghost-btn">Xóa File Nhật Ký</button>
+            <button id="btn-restart" class="danger-btn">Khởi động lại Daemon</button>
+        </div>
+    </section>
+
+    <!-- LIVE DIAGNOSTIC LOGS -->
+    <section class="card">
+        <div class="card-head">
+            <h2>Nhật ký hoạt động (Real-time Logs)</h2>
+            <button id="btn-refresh-logs" class="icon-btn-sm" title="Tải lại log">🔄</button>
+        </div>
+        <pre id="log-output" class="log-output">Đang đọc nhật ký hoạt động từ thiết bị…</pre>
+    </section>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>
