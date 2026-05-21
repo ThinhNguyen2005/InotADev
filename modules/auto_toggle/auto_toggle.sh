@@ -69,21 +69,27 @@ is_usb_connected() {
 is_charging() {
     for p in /sys/class/power_supply/usb/online /sys/class/power_supply/ac/online; do
         if [ -r "$p" ]; then
-            if cat "$p" 2>/dev/null | grep -q '1'; then
+            read -r val < "$p" 2>/dev/null
+            val=${val%%[[:space:]]*} # Strip trailing spaces/carriage returns
+            if [ "$val" = "1" ]; then
                 return 0
             fi
         fi
     done
 
     if [ -r /sys/class/power_supply/battery/status ]; then
-        s=$(cat /sys/class/power_supply/battery/status 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
-        if [ "$s" = "charging" ] || [ "$s" = "full" ]; then
+        read -r s < /sys/class/power_supply/battery/status 2>/dev/null
+        s=${s%%[[:space:]]*}
+        if [ "$s" = "Charging" ] || [ "$s" = "Full" ] || [ "$s" = "charging" ] || [ "$s" = "full" ]; then
             return 0
         fi
     fi
 
-    if dumpsys battery 2>/dev/null | grep -iqE 'ac powered: true|usb powered: true|status: charging|status: full'; then
-        return 0
+    # Dự phòng qua dumpsys battery chỉ chạy khi sysfs không đọc được
+    if [ ! -r /sys/class/power_supply/usb/online ] && [ ! -r /sys/class/power_supply/battery/status ]; then
+        if dumpsys battery 2>/dev/null | grep -iqE 'ac powered: true|usb powered: true|status: charging|status: full'; then
+            return 0
+        fi
     fi
 
     return 1
