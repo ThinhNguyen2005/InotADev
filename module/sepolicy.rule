@@ -1,9 +1,0 @@
-# Cấp quyền đọc file cấu hình targets.txt cho mọi domain của app
-# (zygisk inject vào tiến trình app, kế thừa SELinux domain của app đó).
-allow untrusted_app_all system_file file { open read getattr };
-allow untrusted_app system_file file { open read getattr };
-allow untrusted_app_25 system_file file { open read getattr };
-allow untrusted_app_27 system_file file { open read getattr };
-allow untrusted_app_29 system_file file { open read getattr };
-allow untrusted_app_30 system_file file { open read getattr };
-allow untrusted_app_32 system_file file { open read getattr };

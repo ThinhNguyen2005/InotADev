@@ -1,3 +1,4 @@
+#include "config.hpp"
 #include "hook_settings.hpp"
 #include "logging.hpp"
 
@@ -13,31 +14,43 @@ namespace hdm::hooks {
 
 namespace {
 
-/* ---------------------------------------------------------------------------
- * Danh sách key trong Settings.Global / Settings.Secure cần ép giá trị 0.
- *   - "development_settings_enabled" -> Developer Options
- *   - "adb_enabled"                  -> USB Debugging
- *   - "adb_wifi_enabled"             -> Wireless Debugging (Android 11+)
- *   - các alias khác xuất hiện trên một số ROM/OEM
- * ------------------------------------------------------------------------- */
-constexpr const char *kSpoofedKeys[] = {
-    "development_settings_enabled",
-    "adb_enabled",
-    "adb_wifi_enabled",
-    "wifi_adb_enabled",            // alias trên một số OEM
-    "verifier_verify_adb_installs",
+/* Map từ key Settings sang một bit feature. Trả 0 nếu không thuộc danh sách
+ * cần xử lý. Cách này linh hoạt hơn mảng phẳng vì cho phép bật/tắt riêng từng
+ * loại key (Developer / USB ADB / Wireless ADB) qua features.conf. */
+enum SpoofGroup : int {
+    GROUP_NONE       = 0,
+    GROUP_DEV        = 1, // hide_dev_options
+    GROUP_ADB        = 2, // hide_adb
+    GROUP_ADB_WIFI   = 3, // hide_adb_wifi
 };
+
+inline SpoofGroup classify_key(const char *k) {
+    if (!k) return GROUP_NONE;
+    if (strcmp(k, "development_settings_enabled") == 0)   return GROUP_DEV;
+    if (strcmp(k, "adb_enabled") == 0)                    return GROUP_ADB;
+    if (strcmp(k, "verifier_verify_adb_installs") == 0)   return GROUP_ADB;
+    if (strcmp(k, "adb_wifi_enabled") == 0)               return GROUP_ADB_WIFI;
+    if (strcmp(k, "wifi_adb_enabled") == 0)               return GROUP_ADB_WIFI;
+    return GROUP_NONE;
+}
+
+inline bool group_enabled(SpoofGroup g) {
+    const auto &f = hdm::config::features();
+    switch (g) {
+        case GROUP_DEV:      return f.hide_dev_options;
+        case GROUP_ADB:      return f.hide_adb;
+        case GROUP_ADB_WIFI: return f.hide_adb_wifi;
+        default:             return false;
+    }
+}
 
 inline bool should_spoof_key(JNIEnv *env, jstring jname) {
     if (!jname) return false;
     const char *cstr = env->GetStringUTFChars(jname, nullptr);
     if (!cstr) return false;
-    bool match = false;
-    for (const char *k : kSpoofedKeys) {
-        if (strcmp(cstr, k) == 0) { match = true; break; }
-    }
+    SpoofGroup g = classify_key(cstr);
     env->ReleaseStringUTFChars(jname, cstr);
-    return match;
+    return g != GROUP_NONE && group_enabled(g);
 }
 
 /* ---------------------------------------------------------------------------

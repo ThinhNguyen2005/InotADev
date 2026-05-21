@@ -53,9 +53,11 @@ inline const char *find_override(const char *key) {
 using sp_get_t       = int (*)(const char *, char *);
 using prop_read_cb_t = void (*)(void *, const char *, const char *, uint32_t);
 using sp_read_cb_t   = void (*)(const prop_info *, prop_read_cb_t, void *);
+using sp_read_t      = int (*)(const prop_info *, char *, char *);
 
 sp_get_t      orig_sp_get     = nullptr;
 sp_read_cb_t  orig_sp_read_cb = nullptr;
+sp_read_t     orig_sp_read    = nullptr;
 
 /* 1) __system_property_get(name, value) */
 int hook_sp_get(const char *name, char *value) {
@@ -103,6 +105,34 @@ void hook_sp_read_cb(const prop_info *pi, prop_read_cb_t user_cb, void *user_coo
     if (fb) fb(pi, trampoline_cb, &wrap);
 }
 
+/* 3) __system_property_read - intercept đọc trực tiếp từ cấu trúc prop_info. */
+int hook_sp_read(const prop_info *pi, char *name, char *value) {
+    char tmp_name[92] = {0};
+    char tmp_value[128] = {0};
+    int ret = 0;
+
+    if (orig_sp_read) {
+        ret = orig_sp_read(pi, tmp_name, tmp_value);
+    } else {
+        auto *fb = reinterpret_cast<sp_read_t>(
+                dlsym(RTLD_DEFAULT, "__system_property_read"));
+        if (fb) ret = fb(pi, tmp_name, tmp_value);
+    }
+
+    if (ret >= 0) {
+        if (const char *spoof = find_override(tmp_name)) {
+            size_t len = strlen(spoof);
+            if (len >= PROP_VALUE_MAX) len = PROP_VALUE_MAX - 1;
+            memcpy(tmp_value, spoof, len);
+            tmp_value[len] = '\0';
+            ret = static_cast<int>(len);
+        }
+        if (name) strcpy(name, tmp_name);
+        if (value) strcpy(value, tmp_value);
+    }
+    return ret;
+}
+
 std::atomic<bool> installed{false};
 
 } // namespace
@@ -129,13 +159,17 @@ void install_property_hooks(zygisk::Api *api) {
                          reinterpret_cast<void *>(&hook_sp_read_cb),
                          reinterpret_cast<void **>(&orig_sp_read_cb));
 
+    api->pltHookRegister(0, 0, "__system_property_read",
+                         reinterpret_cast<void *>(&hook_sp_read),
+                         reinterpret_cast<void **>(&orig_sp_read));
+
     if (!api->pltHookCommit()) {
         LOGE("pltHookCommit thất bại - properties hooks không hoạt động");
         installed.store(false);
         return;
     }
-    LOGI("Property PLT hooks installed (orig_get=%p, orig_cb=%p)",
-         orig_sp_get, orig_sp_read_cb);
+    LOGI("Property PLT hooks installed (orig_get=%p, orig_cb=%p, orig_read=%p)",
+         orig_sp_get, orig_sp_read_cb, orig_sp_read);
 }
 
 } // namespace hdm::hooks

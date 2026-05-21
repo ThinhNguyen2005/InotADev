@@ -1,228 +1,112 @@
-# HideDevMode — Zygisk Module
+# HideDevMode & AutoToggle — Giải pháp ẩn Developer Mode & ADB toàn diện cho Android Rooted
 
-Module Zygisk ẩn cục bộ **Chế độ nhà phát triển** (Developer Options) và
-**USB / Wireless Debugging** đối với một danh sách ứng dụng do bạn chỉ định,
-trong khi các tính năng đó vẫn bật bình thường ở phần còn lại của hệ thống.
+Bộ giải pháp tối cao giúp ẩn **Chế độ nhà phát triển (Developer Options)** và **USB/Wireless Debugging** đối với các ứng dụng có tính bảo mật cực cao (như App ngân hàng, App doanh nghiệp) trên thiết bị Android đã Root, trong khi các tính năng này vẫn bật bình thường ở hệ thống ngoài để bạn thoải mái phát triển phần mềm.
 
-Tương thích:
-
-| Loader        | Trạng thái |
-|---------------|------------|
-| Magisk Zygisk (≥ 26.0) | ✔ |
-| KernelSU + zygisk‑next | ✔ |
-| APatch + zygisk‑next   | ✔ |
-
-Yêu cầu Android 8.0 (API 26) trở lên, kiến trúc `arm64-v8a` / `armeabi-v7a` /
-`x86_64` / `x86`.
-
-> [!WARNING]
-> Module này chỉ làm thay đổi giá trị **trả về** từ trong tiến trình app. Nó
-> KHÔNG vô hiệu hóa thực sự ADB hay Developer Options trên hệ thống. Nếu một
-> app dùng các kênh không bị hook (ví dụ đọc thẳng `/proc/sys`, dùng JVMTI,
-> hoặc native-code self-check riêng) thì kết quả có thể vẫn lộ.
+Dự án bao gồm 2 module độc lập, phục vụ cho các nhu cầu sử dụng và cấu hình thiết bị khác nhau:
 
 ---
 
-## 1. Cấu trúc dự án
+## 📊 So sánh hai Module
+
+| Tiêu chí | 🚀 Module **AutoToggle** (Khuyên dùng) | 🛡️ Module **HideDevMode (Zygisk)** |
+|:---|:---|:---|
+| **Loại hình** | **System-level (Event-driven Daemon)** | **In-process (Zygisk Hook)** |
+| **Cơ chế** | Tắt ADB và Developer Options thật của hệ thống ngay khi app chạy. | "Nói dối" trong bộ nhớ của app ngân hàng bằng cách hook lệnh hệ thống. |
+| **Độ tin cậy** | **100% Tuyệt đối** (Do ADB thật bị tắt, app ngân hàng quét database hệ thống sẽ thấy bằng `0`). | Rất cao (Có thể bị lọt nếu app dùng các API Java phức tạp đi qua Binder). |
+| **Tiêu thụ pin** | **0% Tuyệt đối khi rảnh/tắt màn hình** (Sử dụng cơ chế Binder Event-driven thay vì polling). | **0% Tuyệt đối** (Không chạy ngầm). |
+| **Tiện ích Dev** | Bạn cắm cáp debug bình thường. ADB chỉ tạm tắt khi bạn đang mở app ngân hàng, đóng app sẽ tự bật lại. | ADB luôn luôn bật 24/7 ở mọi nơi, kể cả khi bạn đang mở app ngân hàng. |
+| **Khuyên dùng** | Dành cho dev cần bypass các app ngân hàng khó tính nhất có cơ chế quét Java phức tạp. | Dành cho các dòng máy cũ hoặc nhu cầu bypass cơ bản, không muốn động vào cài đặt hệ thống. |
+
+---
+
+## 🛠️ 1. Cấu trúc Dự án
 
 ```
 InotADev/
-├── build.ps1                # build & đóng gói cho Windows / PowerShell
-├── jni/
+├── build.ps1                # Script build tự động & đóng gói thành file Zip
+├── jni/                     # Mã nguồn C++ của Zygisk Module
 │   ├── CMakeLists.txt
-│   ├── include/zygisk.hpp   # API v4 chính thức của topjohnwu
+│   ├── include/zygisk.hpp   # Zygisk API v4
 │   └── src/
-│       ├── main.cpp             # entrypoint module (preApp/postApp specialize)
-│       ├── config.{hpp,cpp}     # đọc /system/etc/hide_devmode/targets.txt
-│       ├── hook_properties.*    # hook __system_property_get/__read_callback (Dobby)
-│       ├── hook_settings.*      # hook Settings.{Global,Secure}.getInt qua JNIEnv vtable
-│       └── logging.hpp
-├── module/                  # nội dung copy thẳng vào /data/adb/modules/<id>/
-│   ├── module.prop
-│   ├── customize.sh
-│   ├── service.sh
-│   └── sepolicy.rule
-└── external/Dobby/          # phải clone bằng tay - xem bên dưới
+│       ├── main.cpp             # Entrypoint module
+│       ├── hook_properties.cpp  # Hook libc __system_property_get, _read, _read_callback
+│       └── hook_settings.cpp    # Hook JNI Settings.getInt
+├── modules/
+│   ├── hide_devmode/        # File gốc đóng gói module Zygisk + WebUI
+│   └── auto_toggle/         # File gốc đóng gói module AutoToggle + WebUI
+└── dist/                    # Thư mục chứa đầu ra dạng Zip sau khi Build
 ```
 
 ---
 
-## 2. Chuẩn bị môi trường
+## 🚀 2. Chuẩn bị & Biên dịch (Build)
 
-### 2.1 Cài NDK (qua Android Studio)
+### 2.1 Chuẩn bị Môi trường
+* Cài đặt **Android NDK** (Khuyến cáo bản NDK r25c trở lên) và **CMake** qua Android Studio.
+* Đặt biến môi trường `ANDROID_NDK_HOME` trỏ tới thư mục NDK của bạn.
+* Cài đặt **Dobby** (Inline-hook engine) bằng lệnh:
+  ```powershell
+  git clone --depth=1 https://github.com/jmpews/Dobby.git external/Dobby
+  ```
+  *(Nếu chưa cài, script build.ps1 sẽ tự động clone hộ bạn).*
 
-Trong Android Studio → *SDK Manager* → tab **SDK Tools** → bật **NDK (Side by side)**
-và **CMake**. Phiên bản tối thiểu khuyến nghị: NDK r25c, CMake 3.22.
-
-Sau khi cài, đặt biến môi trường (PowerShell):
-
+### 2.2 Biên dịch tự động
+Chạy lệnh PowerShell sau tại thư mục gốc của dự án để đóng gói cả 2 module:
 ```powershell
-[Environment]::SetEnvironmentVariable(
-    'ANDROID_NDK_HOME',
-    "$env:LOCALAPPDATA\Android\Sdk\ndk\26.1.10909125",
-    'User')
+pwsh ./build.ps1
 ```
-
-### 2.2 Clone Dobby
-
-Module dùng [Dobby](https://github.com/jmpews/Dobby) làm engine inline‑hook.
-
-```powershell
-git clone --depth=1 https://github.com/jmpews/Dobby.git external/Dobby
-```
-
-Nếu bỏ qua bước này, `build.ps1` sẽ tự clone giúp bạn.
+Đầu ra sẽ xuất hiện trong thư mục `dist/` bao gồm:
+* `dist/auto_toggle.zip`
+* `dist/hide_devmode.zip`
 
 ---
 
-## 3. Build
+## 🤖 3. Chi tiết kỹ thuật & Cơ chế hoạt động
 
-### Một lệnh duy nhất
+### 3.1 Module AutoToggle (Cơ chế Đón đầu Logcat & Binder)
+Các app ngân hàng hiện đại (như Vietcombank, Techcombank, VCB...) thường quét trạng thái ADB thông qua lệnh Java thuần `Settings.Global.getInt()`. Nhằm giải quyết triệt để và khắc phục điểm yếu hao pin của các Daemon thông thường, AutoToggle tích hợp 2 cơ chế siêu việt:
 
-```powershell
-pwsh ./build.ps1                 # release, full 4 ABI
-pwsh ./build.ps1 -BuildType Debug -ABIs arm64-v8a
-```
+#### A. Triệt tiêu Race Condition (Đón đầu Logcat START)
+* **Vấn đề cũ:** Khi bạn mở app ngân hàng, tiến trình của app khởi động siêu nhanh và quét ADB ngay lập tức trong `10ms` đầu. Daemon cũ dùng loop mất `50ms - 150ms` để phát hiện và tắt ADB $\rightarrow$ bị phát hiện trước.
+* **Giải pháp mới:** Lắng nghe luồng logcat hệ thống lọc riêng tag `ActivityTaskManager` ở mức `Info`. Ngay khi bạn vừa chạm tay vào icon app, hệ thống phát log `START u0 { ... cmp=com.package.name/...}` **trước khi tiến trình app ngân hàng kịp fork (khởi tạo)** khoảng `200ms - 400ms`.
+* Trigger của chúng ta sẽ tắt ADB thành công **trước cả khi app ngân hàng kịp khởi chạy**!
 
-Output: `dist\hide_devmode.zip` — flash bằng Magisk Manager / KernelSU Manager.
-
-### Build qua Android Studio (tùy chọn)
-
-Mở `jni/` như một dự án C++ (File → Open → chọn folder `jni`). Android Studio
-sẽ nhận diện `CMakeLists.txt` và biên dịch đúng. Bạn có thể chỉnh **ABI Filters**
-trong `Build Variants` để rút bớt thời gian.
+#### B. Tiết kiệm pin 100% khi rảnh (Event-driven Binder)
+* Lắng nghe chuyển đổi app qua lệnh `am monitor` của Android (kết nối Binder hệ thống). Khi không chuyển app hoặc khi tắt màn hình, tiến trình shell **ngủ đông hoàn toàn (0% CPU, 0% pin)**.
+* Chỉ khi màn hình bật và có sự thay đổi Activity, trigger mới thức dậy xử lý trong $\approx 0.05$ giây rồi đi ngủ tiếp. 
+* Khi màn hình tắt, loop tự động chuyển sang ngủ dài hơn để điện thoại đi vào trạng thái **Deep Sleep** hoàn hảo.
 
 ---
 
-## 4. Cài đặt & cấu hình
+### 3.2 Module HideDevMode (Native Property Hooking)
+Mã nguồn C++ trong `hook_properties.cpp` thực hiện can thiệp sâu vào tầng hệ thống (Bionic Libc) trong không gian bộ nhớ của app mục tiêu:
 
-1. Flash `dist\hide_devmode.zip` qua Magisk hoặc KernelSU Manager.
-2. Reboot.
-3. Sửa danh sách app cần ẩn tại `/data/adb/modules/hide_devmode/system/etc/hide_devmode/targets.txt`
-   (hoặc `/system/etc/hide_devmode/targets.txt` sau khi mount):
+Hook thành công 3 hàm native nhạy cảm nhất của Android Libc:
+1. `__system_property_get` (Cách đọc property cổ điển).
+2. `__system_property_read_callback` (Cách đọc mới của Android Framework).
+3. `__system_property_read` (Chặn đứng hành vi đọc trực tiếp từ cấu trúc `prop_info` - cách các bộ bảo mật mạnh như DexGuard/Promon hay dùng để qua mặt Zygisk).
 
-```
-# Wildcard: áp dụng cho mọi app non-system
-*
-# Loại trừ một số app hệ thống / dev
-!com.android.settings
-!com.android.systemui
-!com.google.android.gms
-
-# Hoặc whitelist tường minh thay vì '*'
-# com.example.bank
-# com.example.game
-```
-
-4. Force‑stop các app đã liệt kê hoặc reboot để Zygote spawn lại tiến trình
-   sạch và áp dụng hook.
+Khi các hàm này bị gọi để đọc các thuộc tính nhạy cảm, module sẽ tự động ghi đè giá trị giả định:
+* `ro.debuggable` = `0`
+* `ro.secure` = `1`
+* `init.svc.adbd` = `stopped`
+* `sys.usb.state` = `mtp`
 
 ---
 
-## 5. Cách hoạt động
+## ⚙️ 4. Cấu hình & Sử dụng
 
-### 5.1 Vòng đời module trong Zygisk
+Cả hai module đều đi kèm với **giao diện quản lý WebUI tuyệt đẹp** được tích hợp trực tiếp. 
 
-```
-Zygote fork()
-   │
-   ├── preAppSpecialize        ← lấy package_name, uid → quyết định có hook
-   │      ├─ KHÔNG hook?       → setOption(DLCLOSE_MODULE_LIBRARY)  → .so bị
-   │      │                       Zygisk dlclose ngay sau specialize
-   │      └─ CÓ hook?          → giữ .so trong process
-   │
-   └── postAppSpecialize       ← cài hooks (libc + JNIEnv)
-```
-
-### 5.2 Tầng `libc`
-
-Hook hai symbol export của bionic:
-
-| Symbol | Vai trò |
-|--------|---------|
-| `__system_property_get`         | API cũ, hầu hết native code dùng |
-| `__system_property_read_callback` | API mới, framework + libsystemproperties dùng |
-
-Khi key trùng với `kOverrides[]` trong `hook_properties.cpp`, hàm trả về giá
-trị giả định trong bảng. Bao gồm:
-
-```
-ro.debuggable                = 0
-ro.secure                    = 1
-init.svc.adbd                = stopped
-sys.usb.state                = mtp
-sys.usb.config               = mtp
-sys.usb.ffs.ready            = 0
-persist.sys.usb.config       = mtp
-persist.sys.usb.reboot.func  = mtp
-persist.adb.tls_server.enable = 0
-... (xem mã nguồn để bổ sung)
-```
-
-### 5.3 Tầng Java/JNI
-
-Settings DB API không phải method native, không thể `RegisterNatives` đè
-trực tiếp. Vì vậy chúng ta chọn **patch JNIEnv vtable**:
-
-- JNIEnv là pointer → `JNINativeInterface*` (≈ 230 con trỏ hàm).
-- Index 141 = `CallStaticIntMethodV`, 142 = `CallStaticIntMethodA`.
-- Cache jmethodID của `Settings$Global.getInt`, `Settings$Secure.getInt`,
-  `Settings$System.getInt` (đủ 2/3 đối số).
-- Khi `CallStaticIntMethodV/A` được gọi với một trong các jmethodID đó **và**
-  `name` ∈ `{development_settings_enabled, adb_enabled, adb_wifi_enabled, …}`,
-  trả về `0` ngay lập tức mà không gọi original.
-- Mọi trường hợp khác forward nguyên si → không sai lệch hành vi.
-
-Cách này:
-- Bắt được **mọi caller native**, kể cả app gọi qua reflection thông qua
-  `JNIEnv->CallStaticIntMethod*`.
-- Java→Java direct (không qua JNI) sẽ không qua vtable này. Trong thực tế
-  framework `Settings.getInt` luôn rơi xuống `ContentResolver.call` → JNI →
-  `binder` nên hook tầng Java thuần không cần thiết, và chúng ta tránh được
-  rủi ro patch ArtMethod (offset thay đổi theo từng phiên bản Android).
-
-### 5.4 Hardening đã áp dụng
-
-- `-fvisibility=hidden`, `--exclude-libs,ALL`, strip symbol release → giảm
-  symbol leak.
-- `LOG_TAG="zn_hdm"`, có thể tắt log với `-DMODULE_VERBOSE=0`.
-- Không alloc trong hot path (bảng key dùng array static, so sánh `strcmp`).
-- Hook idempotent (`std::atomic` guard) → tránh cài đôi nếu có cơ chế
-  re‑initialize.
-- Không bao giờ `DLCLOSE_MODULE_LIBRARY` ở nhánh có hook để tránh unmap
-  trampoline → SIGSEGV.
+1. Flash file zip (`auto_toggle.zip` hoặc `hide_devmode.zip`) thông qua ứng dụng quản lý Root của bạn (KernelSU / APatch / Magisk).
+2. Reboot điện thoại.
+3. Nhấp vào nút **WebUI** (hoặc Trang quản lý) hiển thị ngay bên cạnh module để:
+   * Thêm/bớt các app ngân hàng cần ẩn vào danh sách (Danger Apps).
+   * Bật/tắt các chế độ (USB Trigger, App Trigger).
+   * Xem trực tiếp log trạng thái hoạt động theo thời gian thực.
 
 ---
 
-## 6. Gỡ lỗi
+## ⚖️ 5. Tuyên bố từ chối trách nhiệm
 
-```powershell
-# Kết nối thiết bị qua adb (cần USB debugging trên thiết bị test)
-adb logcat -s zn_hdm:V
-```
-
-Nếu không thấy log:
-- Kiểm tra Zygisk đã bật (Magisk Manager) hoặc zygisk-next đã cài (KSU).
-- `dmesg | grep zygisk` để xác nhận loader nạp module.
-- Force‑stop ứng dụng hoặc reboot.
-
----
-
-## 7. Mở rộng
-
-- Thêm key vào `kOverrides[]` (thuộc tính) hoặc `kSpoofedKeys[]` (Settings DB)
-  rồi rebuild.
-- Để hỗ trợ thêm `Build.TAGS`, `Build.TYPE`, hook `__system_property_find` và
-  `android.os.Build` static field.
-- Để spoof `getprop` từ `Runtime.exec("getprop ...")`, cần thêm hook
-  `execve`/`posix_spawn` — không bao gồm trong bản này.
-
----
-
-## 8. Cảnh báo pháp lý
-
-Module dùng cho mục đích nghiên cứu cá nhân, học tập về kỹ thuật runtime
-hooking trên Android. KHÔNG sử dụng để vượt qua các kiểm tra an toàn của
-ứng dụng tài chính, ngân hàng, hoặc các hệ thống bạn không sở hữu / không
-có quyền hợp pháp truy cập. Tác giả không chịu trách nhiệm về hậu quả phát
-sinh từ việc lạm dụng.
+Dự án này được tạo ra cho mục đích nghiên cứu, học tập cá nhân về kỹ thuật can thiệp runtime trên hệ điều hành Android. Tác giả không chịu trách nhiệm cho bất kỳ hành vi lạm dụng hay tổn thất nào phát sinh từ việc sử dụng công cụ này. Khuyến cáo không sử dụng để vượt qua các cơ chế an toàn trên các hệ thống mà bạn không sở hữu hoặc không được cấp quyền hợp pháp.

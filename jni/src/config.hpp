@@ -4,19 +4,30 @@
 
 namespace hdm::config {
 
+/* Cờ tính năng đọc từ /data/adb/hide_devmode/features.conf. Tất cả default = true.
+ * File format: key=value (1/0/true/false), # là comment. */
+struct Features {
+    bool spoof_props      = true;  // hook __system_property_*
+    bool hide_dev_options = true;  // settings: development_settings_enabled
+    bool hide_adb         = true;  // settings: adb_enabled
+    bool hide_adb_wifi    = true;  // settings: adb_wifi_enabled
+    bool master_enabled   = true;  // tắt hoàn toàn module
+};
+
 /**
- * Quyết định xem một package có nằm trong danh sách cần ẩn Developer/Debug hay
- * không. Logic:
- *   - Đọc /system/etc/hide_devmode/targets.txt (do module copy vào).
- *   - Mỗi dòng là 1 package; '#' hoặc '//' là comment; bỏ qua dòng trống.
- *   - "*" áp dụng cho TẤT CẢ ứng dụng non-system.
- *   - Tiền tố '!' loại trừ một package khỏi danh sách (ưu tiên cao hơn '*').
+ * Quyết định một process có nên bị cài hook hay không. Đọc:
+ *   - /data/adb/hide_devmode/targets.txt   (ưu tiên, persistent path)
+ *   - /system/etc/hide_devmode/targets.txt (fallback từ module mount)
  *
- * @param package_name  Tên package được Zygote truyền vào appSpecializePre.
- * @param uid           UID của tiến trình. <10000 được coi là system app và
- *                      mặc định không hook (trừ khi liệt kê tường minh).
- * @return true nếu nên cài hooks cho process này.
+ * Cú pháp file targets.txt:
+ *   *                  - hook tất cả non-system app
+ *   com.example.app    - hook app này
+ *   !com.example.app   - loại trừ (ưu tiên hơn *)
+ *   #...               - comment
  */
 bool should_hook(std::string_view package_name, int uid);
+
+/** Trả về features đã load. Lazy load lần đầu. */
+const Features &features();
 
 } // namespace hdm::config

@@ -1,0 +1,7 @@
+id=auto_toggle
+name=Auto USB
+version=v1.0.0
+versionCode=10000
+author=InotADev
+description=[WebUI] Tự động TẮT THẬT USB Debugging + Developer Options khi cắm USB.
+updateJson=
