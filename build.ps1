@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Build & đóng gói 2 module: hide_devmode (Zygisk) + auto_toggle (daemon).
 .DESCRIPTION
@@ -17,7 +17,7 @@ param(
 
     [string[]]$ABIs = @('arm64-v8a','armeabi-v7a','x86_64','x86'),
 
-    [ValidateSet('all','hide_devmode','auto_toggle')]
+    [ValidateSet('all','hide_devmode','auto_toggle','adb_toggler')]
     [string]$Only = 'all',
 
     [string]$NdkPath  = $env:ANDROID_NDK_HOME,
@@ -193,13 +193,34 @@ function Build-AutoToggle {
 }
 
 # ----------------------------------------------------------------------------
+# 3) Build AdbToggler.apk (Màn hình chính & Control Center Quick Tile)
+# ----------------------------------------------------------------------------
+function Build-AdbToggler {
+    Write-Host "`n=== Building AdbToggler.apk ===" -ForegroundColor Magenta
+    $adbTogglerDir = Join-Path $root 'external\adbtoggler'
+    $buildScript = Join-Path $adbTogglerDir 'build_apk.ps1'
+    if (-not (Test-Path $buildScript)) {
+        throw "Không tìm thấy build script của AdbToggler tại $buildScript"
+    }
+
+    $oldDir = Get-Location
+    try {
+        Set-Location $adbTogglerDir
+        & powershell -ExecutionPolicy Bypass -File .\build_apk.ps1
+    } finally {
+        Set-Location $oldDir
+    }
+}
+
+# ----------------------------------------------------------------------------
 # Dispatch
 # ----------------------------------------------------------------------------
 if ($Only -eq 'all' -or $Only -eq 'hide_devmode') { Build-HideDevMode }
 if ($Only -eq 'all' -or $Only -eq 'auto_toggle')  { Build-AutoToggle  }
+if ($Only -eq 'all' -or $Only -eq 'adb_toggler')  { Build-AdbToggler }
 
 Write-Host "`n--- Done ---" -ForegroundColor Green
-Get-ChildItem $dist -Filter '*.zip' | Sort-Object Name | ForEach-Object {
+Get-ChildItem $dist | Where-Object { $_.Extension -in '.zip', '.apk' } | Sort-Object Name | ForEach-Object {
     Write-Host ("  {0,8} bytes  {1}" -f $_.Length, $_.Name) -ForegroundColor White
 }
-Write-Host "`nFlash bằng KernelSU/APatch/Magisk Manager." -ForegroundColor Green
+Write-Host "`nFlash zip bằng KernelSU/APatch/Magisk Manager. Cài đặt trực tiếp file APK." -ForegroundColor Green
