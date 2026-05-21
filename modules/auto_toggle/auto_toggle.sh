@@ -34,23 +34,6 @@ echo $$ > "$LOCK"
 trap 'rm -f "$LOCK" "$RUNTIME"' EXIT INT TERM
 
 is_usb_connected() {
-    for f in /sys/class/power_supply/usb/type /sys/class/power_supply/usb/usb_type /sys/class/power_supply/usb/real_type; do
-        if [ -r "$f" ]; then
-            s=$(cat "$f" 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
-            if [ "$s" = "usb" ] || [ "$s" = "usb_sdp" ] || [ "$s" = "usb_cdp" ] || [ "$s" = "sdp" ] || [ "$s" = "cdp" ]; then
-                log_msg "is_usb_connected: Verified PC USB port via sysfs type '$s'"
-                return 0
-            fi
-        fi
-    done
-
-    if dumpsys battery 2>/dev/null | grep -iq 'USB powered: true'; then
-        if dumpsys battery 2>/dev/null | grep -iq 'AC powered: false'; then
-            log_msg "is_usb_connected: Verified PC USB port via dumpsys battery (USB powered, not AC)"
-            return 0
-        fi
-    fi
-
     for f in /sys/class/udc/*/state; do
         if [ -r "$f" ]; then
             s=$(cat "$f" 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
