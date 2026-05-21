@@ -16,4 +16,4 @@ if [ -d "$MODPATH/webroot" ]; then
     ui_print "- WebUI Monitor & Diagnostics sẵn sàng."
 fi
 
-ui_print "- Done. Reboot your device."
+ui_print "- Reboot your device."

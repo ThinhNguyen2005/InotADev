@@ -36,27 +36,35 @@ trap 'rm -f "$LOCK" "$RUNTIME"' EXIT INT TERM
 is_usb_connected() {
     for f in /sys/class/udc/*/state; do
         if [ -r "$f" ]; then
-            s=$(cat "$f" 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
-            if [ "$s" = "configured" ] || [ "$s" = "addressed" ]; then
-                log_msg "is_usb_connected: UDC state is '$s' (PC connected)"
-                return 0
-            fi
+            read -r s < "$f" 2>/dev/null
+            case "$s" in
+                [Cc]onfigured*|[Aa]ddressed*)
+                    log_msg "is_usb_connected: UDC state is '$s' (PC connected)"
+                    return 0
+                    ;;
+            esac
         fi
     done
 
     if [ -r /sys/class/android_usb/android0/state ]; then
-        s=$(cat /sys/class/android_usb/android0/state 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
-        if [ "$s" = "configured" ] || [ "$s" = "connected" ]; then
-            log_msg "is_usb_connected: android_usb state is '$s' (PC connected)"
-            return 0
-        fi
+        read -r s < /sys/class/android_usb/android0/state 2>/dev/null
+        case "$s" in
+            [Cc]onfigured*|[Cc]onnected*)
+                log_msg "is_usb_connected: android_usb state is '$s' (PC connected)"
+                return 0
+                ;;
+        esac
     fi
 
-    usb_state=$(getprop sys.usb.state 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
-    if [ -n "$usb_state" ] && [ "$usb_state" != "none" ] && [ "$usb_state" != "charging" ]; then
-        log_msg "is_usb_connected: sys.usb.state is '$usb_state' (PC connected)"
-        return 0
-    fi
+    usb_state=$(getprop sys.usb.state 2>/dev/null)
+    case "$usb_state" in
+        ""|none|charging|None|Charging)
+            ;;
+        *)
+            log_msg "is_usb_connected: sys.usb.state is '$usb_state' (PC connected)"
+            return 0
+            ;;
+    esac
 
     if dumpsys usb 2>/dev/null | grep -iqE 'connected=true|mconnected=true|connected: true'; then
         log_msg "is_usb_connected: dumpsys usb reports connected=true (PC connected)"
@@ -70,19 +78,17 @@ is_charging() {
     for p in /sys/class/power_supply/usb/online /sys/class/power_supply/ac/online; do
         if [ -r "$p" ]; then
             read -r val < "$p" 2>/dev/null
-            val=${val%%[[:space:]]*} # Strip trailing spaces/carriage returns
-            if [ "$val" = "1" ]; then
-                return 0
-            fi
+            case "$val" in
+                1*) return 0 ;;
+            esac
         fi
     done
 
     if [ -r /sys/class/power_supply/battery/status ]; then
         read -r s < /sys/class/power_supply/battery/status 2>/dev/null
-        s=${s%%[[:space:]]*}
-        if [ "$s" = "Charging" ] || [ "$s" = "Full" ] || [ "$s" = "charging" ] || [ "$s" = "full" ]; then
-            return 0
-        fi
+        case "$s" in
+            [Cc]harging*|[Ff]ull*) return 0 ;;
+        esac
     fi
 
     # Dự phòng qua dumpsys battery chỉ chạy khi sysfs không đọc được
@@ -152,7 +158,7 @@ while true; do
 
     LAST_CHARGING=$CURRENT_CHARGING
 
-    if [ "$CURRENT_CHARGING" -eq 1 ] && $CHECK_ACTIVE; then
+    if [ "$CURRENT_CHARGING" -eq 1 ] && [ "$CHECK_ACTIVE" = "true" ]; then
         if is_usb_connected; then
             log_msg "PC USB connection verified!"
             apply_on
