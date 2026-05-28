@@ -1,7 +1,7 @@
 #!/system/bin/sh
 SKIPUNZIP=0
 
-ui_print "- AutoToggle ADB v1.0.0"
+ui_print "- AutoToggle ADB v1.2.0"
 ui_print "- Author: InotADev"
 ui_print "- Action: USB Auto-Toggle (PC ONLY)"
 

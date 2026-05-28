@@ -1,8 +1,0 @@
-# SELinux rules cho file config persistent của module.
-# Cần cho phép app domain (untrusted_app*) đọc /data/adb/hide_devmode/* qua
-# Zygisk inject - process app sẽ inherit access token từ Zygisk.
-# Do /data/adb đã được KSU bảo vệ ở quyền root, app KHÔNG thể list dir đó qua
-# user shell, nhưng module C++ chạy trong context Zygote sẽ đọc được trước khi
-# drop privileges xuống uid app.
-allow zygote system_data_file file { open read getattr };
-allow zygote system_data_file dir  { search getattr };

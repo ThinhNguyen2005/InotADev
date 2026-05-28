@@ -1,7 +1,0 @@
-id=hide_devmode
-name=HideDevMode (Zygisk)
-version=v1.3.0
-versionCode=10300
-author=InotADev
-description=Zygisk hooks ẩn Developer Options + USB/Wifi Debugging cho app cụ thể. Bypass triệt để các app banking mà không cần tắt ADB thật.
-updateJson=
