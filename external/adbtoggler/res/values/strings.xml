@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Bật Tắt ADB</string>
+    <string name="app_name">ADB Toggle</string>
     <string name="tile_label">ADB Toggle</string>
 </resources>

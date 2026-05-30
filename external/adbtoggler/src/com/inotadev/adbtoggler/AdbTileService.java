@@ -1,71 +1,68 @@
 package com.inotadev.adbtoggler;
 
-import android.content.ComponentName;
-import android.provider.Settings;
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
-import android.widget.Toast;
-import java.io.DataOutputStream;
+import android.util.Log;
 
-public class AdbTileService extends TileService {
+/**
+ * Quick Settings Tile for ADB toggle.
+ *
+ * Features:
+ * - Bật/tắt ADB trực tiếp từ Control Center
+ * - Tự cập nhật khi AutoToggle daemon hoặc app khác thay đổi ADB
+ * - Trạng thái tile đồng bộ với thực tế
+ */
+public class AdbTileService extends TileService implements AdbStateObserver.OnAdbStateChanged {
+
+    private static final String TAG = "AdbTileService";
+    private AdbStateObserver observer;
 
     @Override
     public void onStartListening() {
         super.onStartListening();
+        updateTile();
+
+        observer = new AdbStateObserver(getContentResolver(), this);
+        observer.register();
+    }
+
+    @Override
+    public void onStopListening() {
+        super.onStopListening();
+        if (observer != null) {
+            observer.unregister();
+            observer = null;
+        }
+    }
+
+    @Override
+    public void onAdbStateChanged(boolean enabled) {
         updateTile();
     }
 
     @Override
     public void onClick() {
         super.onClick();
-        try {
-            boolean isEnabled = Settings.Global.getInt(getContentResolver(), Settings.Global.ADB_ENABLED, 0) == 1;
-            boolean nextState = !isEnabled;
-            
-            String cmd = "settings put global adb_enabled " + (nextState ? "1" : "0");
-            boolean success = runRoot(cmd);
-            
-            if (success) {
-                updateTile();
-                String msg = nextState ? "Gỡ lỗi USB: ĐÃ BẬT" : "Gỡ lỗi USB: ĐÃ TẮT";
-                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Lỗi: Không thể lấy quyền Root!", Toast.LENGTH_LONG).show();
-            }
-        } catch (Exception e) {
-            Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_LONG).show();
+
+        boolean currentEnabled = AdbStateObserver.getAdbEnabled(getContentResolver());
+        boolean newState = !currentEnabled;
+
+        Log.d(TAG, "Tile: " + currentEnabled + " -> " + newState);
+
+        if (AdbUtil.setAdbEnabled(this, newState)) {
+            updateTile();
+        } else {
+            Log.e(TAG, "Toggle failed");
         }
     }
 
     private void updateTile() {
         Tile tile = getQsTile();
         if (tile == null) return;
-        
-        boolean isEnabled = Settings.Global.getInt(getContentResolver(), Settings.Global.ADB_ENABLED, 0) == 1;
-        
-        tile.setState(isEnabled ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
-        tile.setLabel(isEnabled ? "ADB: BẬT" : "ADB: TẮT");
-        tile.updateTile();
-    }
 
-    private boolean runRoot(String command) {
-        Process process = null;
-        DataOutputStream os = null;
-        try {
-            process = Runtime.getRuntime().exec("su");
-            os = new DataOutputStream(process.getOutputStream());
-            os.writeBytes(command + "\n");
-            os.writeBytes("exit\n");
-            os.flush();
-            int exitVal = process.waitFor();
-            return exitVal == 0;
-        } catch (Exception e) {
-            return false;
-        } finally {
-            try {
-                if (os != null) os.close();
-                if (process != null) process.destroy();
-            } catch (Exception ignored) {}
-        }
+        boolean enabled = AdbStateObserver.getAdbEnabled(getContentResolver());
+        tile.setState(enabled ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
+        tile.setLabel(enabled ? "ADB: BẬT" : "ADB: TẮT");
+        tile.updateTile();
     }
 }

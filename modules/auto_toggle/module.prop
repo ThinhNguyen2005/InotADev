@@ -1,7 +1,7 @@
 id=auto_toggle
 name=Auto USB
-version=v1.2.1
-versionCode=10201
+version=v1.3.0
+versionCode=10300
 author=InotADev
-description=Tự động BẬT/Tắt ADB khi cắm vào máy tính.
+description=Tự động BậT/Tắt ADB khi cắm vào máy tính. USB detection <3s, Xiaomi-optimized, crash-loop protection.
 updateJson=

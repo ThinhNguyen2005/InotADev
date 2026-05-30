@@ -1,29 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.inotadev.adbtoggler"
-    android:versionCode="1"
-    android:versionName="1.0">
+    android:versionCode="2"
+    android:versionName="2.0">
+
+    <!-- Required for reading ADB state on Android 11+ -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        android:maxSdkVersion="30" />
 
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
 
     <application
         android:label="@string/app_name"
-        android:icon="@drawable/ic_launcher"
-        android:theme="@style/Theme.Transparent">
+        android:icon="@drawable/ic_launcher">
 
-        <!-- Launcher Activity: Transparent & finish immediately -->
+        <!--
+            Hidden launcher activity — no MAIN/LAUNCHER intent.
+            App has NO icon on home screen.
+            The ONLY way to use is via Quick Settings Tile.
+
+            If you need to re-open the app later, find it in:
+            Settings → Apps → ADB Toggle
+        -->
         <activity
             android:name=".MainActivity"
             android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:exported="false" />
 
-        <!-- Quick Settings Tile Service -->
+        <!--
+            Quick Settings Tile — THE ONLY way to use the app.
+            Add to Control Center after installing.
+        -->
         <service
             android:name=".AdbTileService"
             android:label="@string/tile_label"

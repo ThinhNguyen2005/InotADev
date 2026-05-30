@@ -1,101 +1,261 @@
-# HideDevMode & AutoToggle — Giải pháp ẩn Developer Mode & ADB toàn diện cho Android
+# InotADev — Ẩn Developer Mode & ADB cho Android
 
-Dự án này cung cấp hai giải pháp độc lập nhằm hỗ trợ các nhà phát triển (Developers) và người dùng nâng cao vượt qua cơ chế phát hiện **Chế độ nhà phát triển (Developer Options)** và **USB Debugging (ADB)** từ các ứng dụng ngân hàng, tài chính hoặc bảo mật cao trên thiết bị Android đã Root.
-
----
-
-## 📊 1. So sánh các giải pháp
-
-| Tiêu chí | 🚀 Module **AutoToggle** (Khuyên dùng) | 🛡️ Module **HideDevMode (Zygisk)** | 📱 Ứng dụng **AdbToggler** (Phím tắt) |
-| :--- | :--- | :--- | :--- |
-| **Mô tả** | Tự động hóa ADB dựa trên sạc phần cứng. | Hook ẩn Developer Options / ADB đối với các app được chọn. | Bật/tắt ADB chủ động bằng 1-chạm hoặc Control Center Tile. |
-| **Cơ chế hoạt động** | Tắt thật ADB khi không kết nối PC (Daemon). | Nói dối bộ nhớ qua libc hook. | Tắt/Bật thật ADB theo lệnh thủ công qua Root (`su`). |
-| **Độ tin cậy** | **100% Tuyệt đối** (Do ADB thật bị tắt, app quét sẽ thấy bằng `0`). | Rất cao (Có thể bị lọt nếu app dùng các cơ chế quét phức tạp đi qua Binder). | **100% Tuyệt đối** (Tắt thật bằng hệ thống). |
-| **Tiêu hao Pin** | **0.000%** (Cực thấp, ngủ sâu). | **0%** (Không chạy ngầm). | **0%** (Chỉ hoạt động khi nhấn nút). |
-| **Tính tiện dụng** | Cắm PC: Tự động BẬT.<br>Rút PC: Tự động TẮT. | Luôn bật 24/7 mà không ảnh hưởng tới app ngân hàng. | Nhấn icon màn hình chính hoặc nhấn Tile trên Control Center. |
-| **Giao diện WebUI** | **Có Dashboard** (Hiển thị PID, trạng thái sạc, logs trực tiếp). | **Không cần thiết** (Tự động 100%). | **Không cần thiết** (Tự động cập nhật trạng thái trên Tile). |
+Dự án cung cấp giải pháp vượt qua cơ chế phát hiện **Developer Options** và **ADB** từ các ứng dụng ngân hàng, tài chính hoặc bảo mật cao trên thiết bị Android đã Root.
 
 ---
 
-## 🛠️ 2. Cấu trúc Dự án
+## Thành phần
+
+Dự án gồm 3 thành phần **độc lập**, có thể dùng riêng lẻ hoặc kết hợp:
+
+| | AutoToggle | AdbToggler |
+|---|---|---|
+| **Loại** | Magisk Module | Android APK |
+| **Kích thước** | 7 KB | 16 KB |
+| **Cơ chế** | Tự động bật/tắt ADB | Bật/tắt ADB thủ công |
+| **Pin** | ~0% | 0% |
+| **Root cần** | Magisk/KSU/APatch | Magisk/KSU/APatch |
+
+---
+
+## AdbToggler — Bật/tắt ADB 1-chạm
+
+### Tính năng
+
+- **Không có icon** — app ẩn hoàn toàn, không xuất hiện trên màn hình chính
+- **Quick Settings Tile** — bật/tắt ADB trực tiếp từ Control Center
+- **Live sync** — Tile tự cập nhật khi AutoToggle daemon thay đổi ADB
+- **Hỗ trợ KernelSU / APatch / Magisk** — tự detect root method
+
+### Cách sử dụng
+
+**1. Thêm Quick Settings Tile**
+
+1. Mở app (tìm trong Settings → Apps → ADB Toggle)
+2. Cấp quyền **Root** khi được hỏi
+3. Vuốt xuống mở Control Center
+4. Nhấn **Chỉnh sửa** (biểu tượng bút)
+5. Tìm **ADB Toggle** trong danh sách
+6. Kéo vào vùng phím tắt đang hoạt động
+7. Nhấn **Xong**
+
+**2. Bật/tắt ADB**
+
+Nhấn tile **ADB Toggle** trong Control Center.
+
+**3. Thông báo**
+
+- Bật: "Gỡ lỗi USB đã bật"
+- Tắt: "Gỡ lỗi USB đã tắt"
+
+**4. App ẩn hoàn toàn**
+
+App không có icon trên màn hình chính. Muốn mở lại: **Settings → Apps → ADB Toggle**.
+
+**5. Tắt quyền Root**
+
+- **KernelSU:** Settings → KernelSU → Apps → ADB Toggle → Revoke
+- **APatch:** Settings → APatch → Apps → ADB Toggle → Revoke
+- **Magisk:** Magisk App → Superuser → ADB Toggle → Revoke
+
+### Ưu nhược điểm
+
+| Ưu điểm | Nhược điểm |
+|---|---|
+| Nhẹ 16 KB | Cần thao tác thủ công |
+| Không chạy ngầm | Không tự động |
+| Tile đồng bộ với daemon | |
+| Không tốn pin | |
+
+### Hỗ trợ Root
+
+| Root Solution | Hỗ trợ | Ghi chú |
+|---|---|---|
+| **KernelSU** | Có | Tự detect qua `/data/adb/ksu/daemon_socket` |
+| **APatch** | Có | Tự detect qua `/data/adb/apd/daemon_socket` |
+| **Magisk** | Có | Tự detect via su binary |
+| **Không có Root** | Không | Cần Root để toggle ADB |
+
+---
+
+## AutoToggle — Tự động bật/tắt ADB
+
+Module Magisk tự động bật ADB khi cắm PC, tắt khi rút PC.
+
+### Tính năng
+
+- **USB detection < 3 giây** — PC detection window 3s, polling mỗi 0.5s (6 lần thử)
+- **Pin ~0%/giờ** — inline sysfs read, không grep, không fork, batched logging
+- **Xiaomi-optimized** — USBPD paths, typec data role, MIUI detection
+- **Crash-loop protection** — tự halt sau >3 restart trong 60s
+- **Watchdog** — restart daemon khi chết, heartbeat tracking
+- **State persistence** — giữ trạng thái qua reboot
+
+### Cách sử dụng
+
+1. Flash `dist/auto_toggle.zip` qua KernelSU / APatch / Magisk Manager
+2. Reboot
+3. Không cần thao tác gì thêm
+
+### Cơ chế hoạt động
+
+```
+Trạng thái pin (không sạc)
+  → cắm sạc          → mở PC detection window (3s)
+    → cắm PC            → Bật ADB, ngủ 15s
+    → cắm sạc (không PC) → Tắt ADB, ngủ 60s
+  → rút sạc           → Tắt ADB ngay lập tức
+```
+
+### Tối ưu pin
+
+Module được thiết kế cho pin gần như bằng 0:
+
+- **Idle (pin):** Ngủ 60s, chỉ đọc 1 file sysfs mỗi 60s
+- **Charging (có thể PC):** Ngủ 1s, kiểm tra USB state
+- **PC connected:** Ngủ 15s, monitor disconnect
+
+So sánh: Daemon chạy trong ~1 giây mỗi phút khi charging → **CPU usage ≈ 1.7% trong 1 phút = ~0.03%/giờ**. Thực tế drain thấp hơn vì sysfs read rất nhẹ.
+
+### Ưu nhược điểm
+
+| Ưu điểm | Nhược điểm |
+|---|---|
+| Tự động hoàn toàn | Cần flash Magisk/KSU module |
+| USB detection < 3s | Phụ thuộc sysfs paths (thiết bị khác nhau) |
+| Không tốn pin đáng kể | |
+| Works offline | |
+
+### Debug
+
+```bash
+# Log daemon
+cat /data/adb/auto_toggle/log.txt
+
+# Daemon PID
+cat /data/adb/auto_toggle/daemon_pid
+
+# State
+cat /data/adb/auto_toggle/state.sh
+
+# Restart count (kiểm tra crash loop)
+cat /data/adb/auto_toggle/restart_count
+
+# Service errors
+cat /data/adb/auto_toggle/service_error.txt
+
+# Force kill daemon (watchdog sẽ restart)
+killall auto_toggle.sh
+```
+
+---
+
+## Build
+
+### Yêu cầu
+
+| Thành phần | AutoToggle | AdbToggler |
+|---|---|---|
+| Android NDK r25+ | Không | Không |
+| Android SDK | Không | Có (build-tools + platform) |
+| PowerShell | Có | Có |
+| JDK 8+ | Không | Có |
+
+### Lệnh
+
+```powershell
+# Build tất cả (cần NDK)
+pwsh ./build.ps1
+
+# Chỉ AutoToggle (không cần NDK)
+pwsh ./build.ps1 -Only auto_toggle
+
+# Chỉ AdbToggler (không cần NDK)
+pwsh ./build.ps1 -Only adb_toggler
+
+# Build nhanh (chỉ ARM64)
+pwsh ./build.ps1 -Only auto_toggle,adb_toggler -ABIs arm64-v8a
+```
+
+### Output
+
+```
+dist/
+├── AdbToggler.apk     # 16 KB — Android app
+└── auto_toggle.zip    # 7 KB — Magisk module
+```
+
+---
+
+## So sánh chi tiết
+
+### AdbToggler vs AutoToggle
+
+| Tiêu chí | AdbToggler | AutoToggle |
+|---|---|---|
+| **Tự động** | Không — cần nhấn | Có — bật khi cắm PC |
+| **Pin tiêu hao** | 0% (chỉ khi nhấn) | ~0.03%/giờ |
+| **Cần flash module** | Không | Có |
+| **Phù hợp khi** | Muốn kiểm soát thủ công | Luôn cần ADB khi cắm PC |
+| **Tương thích** | Mọi Android có Root | KernelSU / APatch / Magisk |
+
+### Kết hợp tốt nhất
+
+**AutoToggle + AdbToggler** — dùng đồng thời:
+- AutoToggle: tự động bật ADB khi cắm PC
+- AdbToggler: bật/tắt nhanh khi cần mà không cần cắm PC
+
+---
+
+## Changelog
+
+### AdbToggler v2.0
+
+- **KernelSU/APatch support** — tự detect root method, không hardcode su
+- **Root timeout** — 5s timeout để tránh hang
+- **AdbStateObserver** — Tile tự cập nhật khi daemon thay đổi ADB
+- **Icon ẩn được** — launcher có thể gỡ, tile vẫn hoạt động
+- **Thêm stop adbd** khi disable — tắt triệt để
+
+### AutoToggle v1.3.0
+
+- USB detection: 15s → 3s window, 1s → 0.5s polling
+- Xiaomi paths: USBPD, typec, MIUI detection
+- Pin: loại bỏ grep/fork, inline check, batched logging
+- Daemon: PID tracking, heartbeat, crash-loop protection, watchdog
+
+---
+
+## Cấu trúc dự án
 
 ```
 InotADev/
-├── build.ps1                # Script PowerShell tự động biên dịch và đóng gói (.zip & .apk)
-├── jni/                     # Mã nguồn C++ của module Zygisk (HideDevMode)
-│   ├── CMakeLists.txt
-│   └── src/
-│       ├── main.cpp             # Entrypoint module Zygisk
-│       └── hook_properties.cpp  # Hook libc __system_property_get, _read, _read_callback
+├── build.ps1
+├── README.md
+│
+├── docs/
+│   └── TEST_CHECKLIST.md       # Checklist test
+│
 ├── modules/
-│   ├── hide_devmode/        # Bản thô của module HideDevMode Magisk
-│   └── auto_toggle/         # Bản thô của module AutoToggle Magisk
+│   └── auto_toggle/            # AutoToggle Magisk module
+│       ├── auto_toggle.sh      # Daemon v1.3.0
+│       ├── service.sh          # Boot service v1.3.0
+│       ├── customize.sh
+│       └── module.prop
+│
 ├── external/
-│   └── adbtoggler/          # Mã nguồn ứng dụng AdbToggler.apk
-└── dist/                    # Chứa thành phẩm dạng .zip và .apk sau khi build
+│   └── adbtoggler/             # AdbToggler Android app
+│       ├── build_apk.ps1
+│       ├── AndroidManifest.xml
+│       ├── res/
+│       │   ├── values/strings.xml
+│       │   ├── values/styles.xml
+│       │   └── drawable/
+│       └── src/com/inotadev/adbtoggler/
+│           ├── MainActivity.java      # Launcher toggle
+│           ├── AdbTileService.java     # Quick Settings Tile
+│           ├── AdbStateObserver.java   # ADB state watcher
+│           └── AdbUtil.java           # Root + ADB operations
+│
+└── dist/                       # Output sau build
 ```
-
----
-
-## 🚀 3. Hướng dẫn Biên dịch & Đóng gói (Build)
-
-### 3.1 Yêu cầu môi trường
-* **Android NDK** (khuyên dùng bản r25c trở lên) và **CMake** (cài đặt qua Android Studio).
-* Đặt biến môi trường `ANDROID_NDK_HOME` trỏ tới thư mục cài đặt NDK.
-
-### 3.2 Lệnh build tự động
-### 3.2 Lệnh build tự động
-Chạy lệnh PowerShell tại thư mục gốc của dự án để đóng gói cả ba thành phần:
-```powershell
-pwsh ./build.ps1
-```
-*(Nếu muốn build riêng lẻ, bạn có thể dùng `-Only auto_toggle`, `-Only hide_devmode` hoặc `-Only adb_toggler`)*
-
-Thành phẩm sẽ xuất hiện trong thư mục `dist/` bao gồm:
-* `dist/auto_toggle.zip` (Module tự động hóa ADB dựa trên sạc phần cứng)
-* `dist/hide_devmode.zip` (Module Zygisk ẩn Dev Mode)
-* `dist/AdbToggler.apk` (Ứng dụng phím tắt Control Center & Launcher siêu nhẹ - chỉ 12.8 KB)
-
----
-
-## 🤖 4. Chi tiết kỹ thuật & Cơ chế hoạt động của AutoToggle
-
-Module **AutoToggle** được thiết kế lại hoàn toàn để loại bỏ các logic giám sát phức tạp trước đây (như Logcat, Binder Monitor hay WebUI). Script hoạt động dựa trên cơ chế **Kiểm tra sạc một lần duy nhất** để triệt tiêu hoàn toàn điện năng tiêu thụ:
-
-1. **Khi thiết bị không sạc (Chạy bằng pin):**
-   * ADB được giữ ở trạng thái **TẮT** (Disabled).
-   * Daemon ngủ đông và chỉ đọc một file sysfs cực kỳ nhẹ (`/sys/class/power_supply/...`) để phát hiện nguồn điện cắm vào. Lượng CPU sử dụng bằng **0%**.
-2. **Khi phát hiện cắm sạc (Power Connected):**
-   * Hệ thống sẽ chạy một vòng lặp nhỏ trong tối đa 5 giây đầu (mỗi giây thử lại 1 lần) để chờ quá trình **bắt tay USB (USB Handshake)** hoàn tất.
-   * Nếu nhận diện thấy trạng thái `CONFIGURED` (được cắm vào Máy tính/PC): Tự động **BẬT** ADB.
-   * Nếu chỉ cắm vào **củ sạc thường hoặc sạc dự phòng**: Giữ ADB **TẮT** và ngừng hoàn toàn việc kiểm tra USB trong suốt phiên sạc đó.
-3. **Khi phát hiện rút sạc (Power Disconnected):**
-   * Ngay lập tức tắt ADB và quay lại chế độ ngủ đông tiết kiệm pin.
-
----
-
-## ⚙️ 5. Cài đặt & Sử dụng
-
-1. **Đối với Module Magisk (.zip):**
-   * Flash file zip tương ứng (`auto_toggle.zip` hoặc `hide_devmode.zip`) thông qua ứng dụng quản lý Root (KernelSU / APatch / Magisk Manager).
-   * Khởi động lại thiết bị.
-2. **Đối với Ứng dụng AdbToggler (.apk):**
-   * Cài đặt file [AdbToggler.apk](file:///d:/Root/InotADev/dist/AdbToggler.apk) có trong thư mục `dist/`.
-   * Cấp quyền **Root (Superuser)** khi mở ứng dụng lần đầu tiên ngoài Màn hình chính.
-
----
-
-## 📱 6. Hướng dẫn sử dụng AdbToggler (Phím tắt bật/tắt nhanh)
-
-**AdbToggler** cung cấp hai cách điều khiển cực kỳ linh hoạt:
-
-1. **Màn hình chính (Launcher Icon):**
-   * Khi bạn nhấn vào biểu tượng ứng dụng ngoài màn hình chính, nó sẽ tự động chạy ngầm dưới giao diện trong suốt hoàn toàn, đổi ngược trạng thái ADB hiện tại và kết thúc ngay tức khắc (không hiển thị cửa sổ hay gây giật nháy màn hình).
-   * Thông báo Toast dạng `Gỡ lỗi USB: ĐÃ BẬT` hoặc `Gỡ lỗi USB: ĐÃ TẮT` sẽ hiện lên tức thì.
-
-2. **Thanh Trung tâm điều khiển (Quick Settings / Control Center Tile):**
-   * Mở rộng thanh trạng thái / Trung tâm điều khiển trên điện thoại của bạn.
-   * Nhấn vào biểu tượng **Chỉnh sửa phím tắt (Edit)**.
-   * Tìm phím tắt có tên **ADB Toggle** (hình con bọ robot Android màu xanh lá cây) và kéo nó lên khu vực các phím tắt đang hoạt động.
-   * Nhấn **Lưu (Done)**.
-   * Từ bây giờ, bạn có thể bật/tắt nhanh ADB trực tiếp chỉ với 1-chạm từ Control Center. Trạng thái bật/tắt (sáng/tối) sẽ tự động đồng bộ theo thời gian thực.

@@ -1,9 +1,9 @@
 #!/system/bin/sh
 SKIPUNZIP=0
 
-ui_print "- AutoToggle ADB v1.2.0"
+ui_print "- AutoToggle ADB v1.3.0"
 ui_print "- Author: InotADev"
-ui_print "- Action: USB Auto-Toggle (PC ONLY)"
+ui_print "- Action: USB Auto-Toggle (PC ONLY) — Fast detection, Xiaomi-optimized"
 
 mkdir -p /data/adb/auto_toggle
 

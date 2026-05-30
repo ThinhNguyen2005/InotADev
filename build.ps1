@@ -18,7 +18,7 @@ param(
     [string[]]$ABIs = @('arm64-v8a','armeabi-v7a','x86_64','x86'),
 
     [ValidateSet('all','hide_devmode','auto_toggle','adb_toggler')]
-    [string]$Only = 'all',
+    [string[]]$Only = @('all'),
 
     [string]$NdkPath  = $env:ANDROID_NDK_HOME,
     [int]   $ApiLevel = 26
