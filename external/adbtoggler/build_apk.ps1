@@ -1,5 +1,8 @@
-# build_apk.ps1
+# build_apk.ps1 - Kotlin Android build pipeline with R8 Tree-Shaking
 $ErrorActionPreference = "Stop"
+
+Push-Location $PSScriptRoot
+try {
 
 $sdkPath = "C:\Users\Abc\AppData\Local\Android\Sdk"
 if (-not (Test-Path $sdkPath)) {
@@ -26,15 +29,17 @@ Write-Host "Using Platform: $($platformDirs[0].Name) ($androidJar)"
 
 # Set up paths to build tools
 $aapt2 = "$buildToolsPath\aapt2.exe"
-$d8 = "$buildToolsPath\d8.bat"
+$d8Jar = "$buildToolsPath\lib\d8.jar"
 $zipalign = "$buildToolsPath\zipalign.exe"
 $apksigner = "$buildToolsPath\apksigner.bat"
 
-# Verify tools exist
-foreach ($tool in @($aapt2, $d8, $zipalign, $apksigner)) {
-    if (-not (Test-Path $tool)) {
-        Write-Error "Required tool not found: $tool"
-    }
+# Detect Kotlin Compiler
+$ktHome = "C:\Program Files\Android\Android Studio\plugins\Kotlin\kotlinc"
+$ktCompilerJar = "$ktHome\lib\kotlin-compiler.jar"
+$ktStdlibJar = "$ktHome\lib\kotlin-stdlib.jar"
+
+if (-not (Test-Path $ktCompilerJar)) {
+    Write-Error "Kotlin compiler not found at $ktCompilerJar!"
 }
 
 # Directories
@@ -68,15 +73,45 @@ Write-Host "=== 1. Compiling Resources ==="
 Write-Host "=== 2. Linking Resources ==="
 & "$aapt2" link -o $unsignedApk -I "$androidJar" --manifest AndroidManifest.xml --java $genDir $compiledResZip
 
-Write-Host "=== 3. Compiling Java Sources ==="
-$javaFiles = Get-ChildItem -Path "src", $genDir -Filter *.java -Recurse | ForEach-Object { $_.FullName }
-& javac -d $objDir -classpath "$androidJar" -sourcepath "src;$genDir" --release 8 $javaFiles
+Write-Host "=== 3. Compiling Generated R.java ==="
+$rJavaFiles = Get-ChildItem -Path $genDir -Filter *.java -Recurse | ForEach-Object { $_.FullName }
+if ($rJavaFiles.Count -gt 0) {
+    & javac -d $objDir -classpath "$androidJar" $rJavaFiles
+    if ($LASTEXITCODE -ne 0) { throw "R.java compilation failed!" }
+}
 
-Write-Host "=== 4. Translating bytecode to DEX ==="
+Write-Host "=== 4. Compiling Kotlin Sources ==="
+$ktFiles = Get-ChildItem -Path "src" -Filter *.kt -Recurse | ForEach-Object { $_.FullName }
+& java -cp "$ktCompilerJar" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler `
+    -cp "$androidJar;$objDir" `
+    -d $objDir `
+    -jvm-target 1.8 `
+    $ktFiles
+if ($LASTEXITCODE -ne 0) { throw "Kotlin compilation failed!" }
+
+Write-Host "=== 5. Optimizing & Dexing with R8 Tree-Shaking ==="
+$r8Keep = "$buildDir\keep.txt"
+@"
+-keep public class com.inotadev.adbtoggler.MainActivity { *; }
+-keep public class com.inotadev.adbtoggler.AdbTileService { *; }
+-keep public class com.inotadev.adbtoggler.Constants* { *; }
+-keep public class com.inotadev.adbtoggler.DaemonMode* { *; }
+-keep public class com.inotadev.adbtoggler.R* { *; }
+-dontobfuscate
+-dontwarn **
+"@ | Set-Content -Path $r8Keep -Encoding UTF8
+
 $classFiles = Get-ChildItem -Path $objDir -Filter *.class -Recurse | ForEach-Object { $_.FullName }
-& "$d8" --lib "$androidJar" --output $dexDir $classFiles
+& java -cp $d8Jar com.android.tools.r8.R8 `
+    --release `
+    --min-api 24 `
+    --lib "$androidJar" `
+    --output $dexDir `
+    --pg-conf $r8Keep `
+    $classFiles "$ktStdlibJar"
+if ($LASTEXITCODE -ne 0) { throw "R8 tree-shaking failed!" }
 
-Write-Host "=== 5. Merging DEX into unsigned APK ==="
+Write-Host "=== 6. Merging DEX into unsigned APK ==="
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $unsignedApkFullPath = (Resolve-Path $unsignedApk).Path
@@ -89,11 +124,10 @@ $dexFilePath = (Resolve-Path "$dexDir\classes.dex").Path
 [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $dexFilePath, "classes.dex")
 $zip.Dispose()
 
-
-Write-Host "=== 6. Aligning APK ==="
+Write-Host "=== 7. Aligning APK ==="
 & "$zipalign" -v -f 4 $unsignedApk $alignedApk
 
-Write-Host "=== 7. Signing APK ==="
+Write-Host "=== 8. Signing APK ==="
 $keytool = "C:\Program Files\Java\jdk-23\bin\keytool.exe"
 if (-not (Test-Path $keytool)) {
     $keytool = "C:\Program Files\Java\latest\bin\keytool.exe"
@@ -109,5 +143,10 @@ if (-not (Test-Path $keystore)) {
 
 & "$apksigner" sign --ks $keystore --ks-key-alias adbtoggler --ks-pass pass:adbtoggler --key-pass pass:adbtoggler --out $finalApk $alignedApk
 
-Write-Host "=== BUILD SUCCESSFUL ==="
+Write-Host "`n=== BUILD SUCCESSFUL ==="
 Write-Host "Final APK generated at: $finalApk"
+Get-Item $finalApk | Select-Object Name, Length, LastWriteTime | Format-Table -AutoSize
+
+} finally {
+    Pop-Location
+}

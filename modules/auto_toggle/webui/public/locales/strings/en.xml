@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App & Header -->
+    <string name="app_title">AutoToggle ADB</string>
+    <string name="app_subtitle">Rust Daemon v2.1 · KernelSU Next</string>
+    <string name="language">Language</string>
+    <string name="refresh">Refresh</string>
+    <string name="help">Help</string>
+    
+    <!-- Hero Status Card -->
+    <string name="status_title">ADB Status</string>
+    <string name="adb_enabled">ADB: [ENABLED]</string>
+    <string name="adb_disabled">ADB: [DISABLED]</string>
+    <string name="toggle_adb">Toggle State</string>
+    <string name="usb_status">USB Port Status</string>
+    <string name="usb_connected">Connected to PC</string>
+    <string name="usb_disconnected">Disconnected from PC</string>
+    <string name="daemon_pid">Daemon Process</string>
+    <string name="current_reason">Trigger Reason</string>
+    
+    <!-- Modes -->
+    <string name="mode_section">Operation Mode</string>
+    <string name="mode_auto">Auto</string>
+    <string name="mode_auto_desc">Enable on PC plug, disable on disconnect</string>
+    <string name="mode_on">Always ON</string>
+    <string name="mode_on_desc">Keep ADB permanently enabled</string>
+    <string name="mode_off">Always OFF</string>
+    <string name="mode_off_desc">Keep ADB permanently disabled</string>
+    
+    <!-- Config Toggles -->
+    <string name="config_section">Daemon Configuration</string>
+    <string name="cfg_wifi_title">Turn off Wi-Fi ADB on disconnect</string>
+    <string name="cfg_wifi_desc">Disable wireless debugging when PC cable is removed</string>
+    <string name="cfg_dev_title">Hide Developer Options when disabled</string>
+    <string name="cfg_dev_desc">development_settings_enabled = 0 when ADB off</string>
+    <string name="cfg_unlocked_title">Only enable when unlocked</string>
+    <string name="cfg_unlocked_desc">Protect device from untrusted public chargers</string>
+    <string name="cfg_notify_title">Status notifications</string>
+    <string name="cfg_notify_desc">Post system notification on state change</string>
+    <string name="cfg_debounce_title">Debounce Delay</string>
+    <string name="cfg_debounce_desc">Grace period before shutting down ADB on cable disconnect</string>
+    
+    <!-- Terminal / Logs -->
+    <string name="terminal_title">Daemon Logs</string>
+    <string name="clear_terminal">Clear</string>
+    <string name="copy_terminal">Copy</string>
+    <string name="copied">Copied to clipboard</string>
+    <string name="no_logs">No logs recorded yet</string>
+</resources>

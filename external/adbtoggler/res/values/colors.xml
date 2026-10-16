@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material 3 Palette (Dark Mode Base - Google Material You style) -->
+    <color name="md_theme_primary">#53DBC9</color>
+    <color name="md_theme_onPrimary">#003732</color>
+    <color name="md_theme_primaryContainer">#005048</color>
+    <color name="md_theme_onPrimaryContainer">#72F8E5</color>
+
+    <color name="md_theme_surface">#121316</color>
+    <color name="md_theme_surfaceContainer">#1E2024</color>
+    <color name="md_theme_surfaceContainerHigh">#292A2E</color>
+    <color name="md_theme_onSurface">#E2E2E6</color>
+    <color name="md_theme_onSurfaceVariant">#A0A2A8</color>
+    <color name="md_theme_outline">#32353D</color>
+
+    <!-- Semantic Status Colors -->
+    <color name="md_theme_status_active">#4CAF50</color>
+    <color name="md_theme_status_inactive">#8E9199</color>
+    <color name="md_theme_usb_connected">#80CBC4</color>
+</resources>

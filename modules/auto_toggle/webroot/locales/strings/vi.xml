@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App & Header -->
+    <string name="app_title">AutoToggle ADB</string>
+    <string name="app_subtitle">Rust Daemon v2.1 · KernelSU Next</string>
+    <string name="language">Ngôn ngữ</string>
+    <string name="refresh">Làm mới</string>
+    <string name="help">Trợ giúp</string>
+    
+    <!-- Hero Status Card -->
+    <string name="status_title">Trạng thái ADB</string>
+    <string name="adb_enabled">ADB: [BẬT]</string>
+    <string name="adb_disabled">ADB: [TẮT]</string>
+    <string name="toggle_adb">Chuyển trạng thái</string>
+    <string name="usb_status">Trạng thái cổng USB</string>
+    <string name="usb_connected">Đang kết nối PC</string>
+    <string name="usb_disconnected">Đã rút cáp PC</string>
+    <string name="daemon_pid">Tiến trình Daemon</string>
+    <string name="current_reason">Lý do kích hoạt</string>
+    
+    <!-- Modes -->
+    <string name="mode_section">Chế độ hoạt động</string>
+    <string name="mode_auto">Tự động (Auto)</string>
+    <string name="mode_auto_desc">Tự bật khi cắm PC, tự tắt khi rút cáp</string>
+    <string name="mode_on">Luôn Bật (ON)</string>
+    <string name="mode_on_desc">Giữ ADB luôn bật thủ công</string>
+    <string name="mode_off">Luôn Tắt (OFF)</string>
+    <string name="mode_off_desc">Luôn tắt ADB để bảo mật</string>
+    
+    <!-- Config Toggles -->
+    <string name="config_section">Cấu hình Daemon</string>
+    <string name="cfg_wifi_title">Tắt ADB Wi-Fi khi rút cáp</string>
+    <string name="cfg_wifi_desc">Tự động ngắt kết nối không dây khi ngắt cáp PC</string>
+    <string name="cfg_dev_title">Ẩn Tùy chọn nhà phát triển khi tắt ADB</string>
+    <string name="cfg_dev_desc">development_settings_enabled = 0 khi tắt ADB</string>
+    <string name="cfg_unlocked_title">Chỉ bật khi đã mở khóa màn hình</string>
+    <string name="cfg_unlocked_desc">Ngăn chặn khai thác ADB khi thiết bị đang khóa</string>
+    <string name="cfg_notify_title">Hiển thị thông báo trạng thái</string>
+    <string name="cfg_notify_desc">Gửi thông báo hệ thống khi chuyển đổi trạng thái</string>
+    <string name="cfg_debounce_title">Thời gian trễ ngắt (Debounce Delay)</string>
+    <string name="cfg_debounce_desc">Khoảng thời gian chờ trước khi ngắt ADB khi rút cáp</string>
+    
+    <!-- Terminal / Logs -->
+    <string name="terminal_title">Nhật ký Daemon</string>
+    <string name="clear_terminal">Xóa màn hình</string>
+    <string name="copy_terminal">Sao chép</string>
+    <string name="copied">Đã sao chép vào bộ nhớ tạm</string>
+    <string name="no_logs">Chưa có nhật ký hoạt động</string>
+</resources>

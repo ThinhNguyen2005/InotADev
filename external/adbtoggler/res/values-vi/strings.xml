@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ADB Toggler</string>
+    <string name="subtitle_companion">Ứng dụng hỗ trợ Rust Daemon</string>
+
+    <!-- Trạng thái ADB -->
+    <string name="status_card_title">TRẠNG THÁI ADB</string>
+    <string name="status_on">ADB đang bật</string>
+    <string name="status_off">ADB đang tắt</string>
+    <string name="label_on">[BẬT]</string>
+    <string name="label_off">[TẮT]</string>
+    <string name="toggle_adb_action">%1$s → %2$s</string>
+
+    <!-- Trạng thái kết nối USB -->
+    <string name="usb_connected">Đã cắm PC</string>
+    <string name="usb_disconnected">Chưa cắm PC</string>
+    <string name="usb_status_with_reason">%1$s (%2$s)</string>
+
+    <!-- Nhãn chế độ -->
+    <string name="mode_title">CHẾ ĐỘ DAEMON</string>
+    <string name="mode_auto">Tự động</string>
+    <string name="mode_on">Luôn bật</string>
+    <string name="mode_off">Luôn tắt</string>
+
+    <!-- Thông tin hệ thống -->
+    <string name="info_title">THÔNG TIN HỆ THỐNG</string>
+    <string name="daemon_details_format">Chế độ Daemon: %1$s\nTrạng thái: %2$s</string>
+    <string name="status_ready">Sẵn sàng</string>
+    <string name="tile_guide">Mẹo: Thêm ô ADB Toggle vào Cài đặt nhanh để bật/tắt 1 chạm.</string>
+
+    <!-- Nút bấm -->
+    <string name="btn_toggle">Chuyển đổi ADB</string>
+    <string name="btn_refresh">Làm mới</string>
+
+    <!-- Thông báo Toast -->
+    <string name="adb_enabled_msg">Đã bật ADB</string>
+    <string name="adb_disabled_msg">Đã tắt ADB</string>
+    <string name="toggle_failed">Thao tác thất bại — kiểm tra quyền root</string>
+    <string name="error_format">Lỗi: %1$s</string>
+
+    <!-- Quick Settings Tile -->
+    <string name="tile_label">ADB Toggle</string>
+    <string name="tile_subtitle_on">[BẬT]</string>
+    <string name="tile_subtitle_off">[TẮT]</string>
+</resources>

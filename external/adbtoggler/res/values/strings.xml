@@ -1,5 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Bật Tắt ADB</string>
+    <string name="app_name">ADB Toggler</string>
+    <string name="subtitle_companion">Rust Daemon Companion</string>
+
+    <!-- ADB Status -->
+    <string name="status_card_title">ADB STATUS</string>
+    <string name="status_on">ADB is ON</string>
+    <string name="status_off">ADB is OFF</string>
+    <string name="label_on">[ON]</string>
+    <string name="label_off">[OFF]</string>
+    <string name="toggle_adb_action">%1$s → %2$s</string>
+
+    <!-- USB Connection Status -->
+    <string name="usb_connected">PC Connected</string>
+    <string name="usb_disconnected">PC Disconnected</string>
+    <string name="usb_status_with_reason">%1$s (%2$s)</string>
+
+    <!-- Mode Section -->
+    <string name="mode_title">DAEMON MODE</string>
+    <string name="mode_auto">Auto</string>
+    <string name="mode_on">ON</string>
+    <string name="mode_off">OFF</string>
+
+    <!-- System Information -->
+    <string name="info_title">SYSTEM INFORMATION</string>
+    <string name="daemon_details_format">Daemon Mode: %1$s\nRuntime: %2$s</string>
+    <string name="status_ready">Ready</string>
+    <string name="tile_guide">Tip: Add ADB Toggle to Quick Settings for 1-tap switching.</string>
+
+    <!-- Buttons & Actions -->
+    <string name="btn_toggle">Toggle ADB</string>
+    <string name="btn_refresh">Refresh</string>
+
+    <!-- Toasts & Notifications -->
+    <string name="adb_enabled_msg">ADB Enabled</string>
+    <string name="adb_disabled_msg">ADB Disabled</string>
+    <string name="toggle_failed">Operation failed — check root permission</string>
+    <string name="error_format">Error: %1$s</string>
+
+    <!-- Quick Settings Tile -->
     <string name="tile_label">ADB Toggle</string>
+    <string name="tile_subtitle_on">[ON]</string>
+    <string name="tile_subtitle_off">[OFF]</string>
 </resources>

@@ -1,7 +1,6 @@
 id=auto_toggle
-name=Auto USB
-version=v1.2.1
-versionCode=10201
-author=InotADev
-description=Tự động BẬT/Tắt ADB khi cắm vào máy tính.
-updateJson=
+name=AutoToggle ADB (Rust)
+version=v2.1.0
+versionCode=210
+author=thinhnguyen2005
+description=ADB: Đang chờ khởi động · Chế độ: auto

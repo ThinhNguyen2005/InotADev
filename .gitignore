@@ -1,19 +1,45 @@
 # Build artifacts
 build/
+**/build/
 dist/
 *.o
 *.so
 *.a
+*.apk
+*.idsig
 
-# IDE
+# Rust Build Output (Bắt buộc)
+target/
+**/target/
+**/*.rs.bk
+
+# Generated Binaries
+modules/auto_toggle/bin/
+
+# Android Signing Keys (Bảo mật)
+*.keystore
+*.jks
+
+# IDE & Tooling
 .idea/
+**/.idea/
 .vscode/
 *.iml
+**/*.iml
 .cxx/
+node_modules/
+**/node_modules/
 
-# External deps fetched at build time
+# External deps
 external/Dobby/
+
+# Logs & Temporary files
+*.log
+*.tmp
+*.bak
+DEBUG_ANALYSIS.md
 
 # OS
 Thumbs.db
+desktop.ini
 .DS_Store
