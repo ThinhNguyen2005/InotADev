@@ -133,7 +133,7 @@ export default function Terminal({ terminal }: TerminalProps) {
   }, [terminal])
 
   return (
-    <div className="w-full max-w-200 flex-1 bg-surface rounded-lg overflow-hidden flex flex-col landscape:max-w-none min-h-0">
+    <div className="w-full max-w-full flex-1 bg-surface rounded-lg overflow-hidden flex flex-col landscape:max-w-none min-h-0">
       {/* Terminal header */}
       <div className="flex items-center justify-between px-3.75 py-1.25 text-sm bg-surface-container-highest select-none shrink-0">
         <div className="flex items-center gap-2">

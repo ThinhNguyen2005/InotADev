@@ -108,7 +108,7 @@ export default function App() {
         />
       }
     >
-      <div className="w-full flex-1 flex flex-col items-center px-2 py-4 gap-4 overflow-y-auto max-w-xl mx-auto">
+      <div className="w-full max-w-xl mx-auto flex flex-col items-center py-2 gap-4 box-border overflow-x-hidden">
         {/* Hero ADB Status Card */}
         <div className="w-full bg-surface border border-outline/20 rounded-3xl p-5 shadow-lg flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -130,11 +130,12 @@ export default function App() {
             </div>
 
             <button
+              type="button"
               onClick={handleToggleAdb}
               disabled={loading}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 active:scale-95 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 active:scale-95 border-0 outline-none ring-0 cursor-pointer select-none ${
                 runtime.stateOn
-                  ? 'bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30'
+                  ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
                   : 'bg-primary text-on-primary hover:opacity-90'
               }`}
             >
@@ -193,13 +194,14 @@ export default function App() {
             {t('mode_section', 'Chế độ hoạt động')}
           </span>
 
-          <div className="grid grid-cols-3 gap-2 bg-surface-container border border-outline/20 p-1.5 rounded-2xl">
+          <div className="grid grid-cols-3 gap-2 bg-surface-container border border-outline/20 p-1.5 rounded-2xl w-full box-border">
             <button
+              type="button"
               onClick={() => handleModeChange('auto')}
-              className={`py-3 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+              className={`border-0 outline-none py-3 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer select-none ring-0 ${
                 config.mode === 'auto'
                   ? 'bg-primary-container text-primary shadow'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
+                  : 'bg-transparent text-on-surface-variant hover:bg-surface-container-high'
               }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 fill-current">
@@ -209,11 +211,12 @@ export default function App() {
             </button>
 
             <button
+              type="button"
               onClick={() => handleModeChange('on')}
-              className={`py-3 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+              className={`border-0 outline-none py-3 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer select-none ring-0 ${
                 config.mode === 'on'
                   ? 'bg-primary-container text-primary shadow'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
+                  : 'bg-transparent text-on-surface-variant hover:bg-surface-container-high'
               }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 fill-current">
@@ -223,11 +226,12 @@ export default function App() {
             </button>
 
             <button
+              type="button"
               onClick={() => handleModeChange('off')}
-              className={`py-3 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+              className={`border-0 outline-none py-3 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer select-none ring-0 ${
                 config.mode === 'off'
                   ? 'bg-primary-container text-primary shadow'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
+                  : 'bg-transparent text-on-surface-variant hover:bg-surface-container-high'
               }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 fill-current">

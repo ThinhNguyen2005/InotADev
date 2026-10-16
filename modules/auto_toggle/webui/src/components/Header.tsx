@@ -40,8 +40,9 @@ export default function Header({ onHelpClick, onRefreshClick }: HeaderProps) {
 
       <div className="flex items-center gap-1">
         <button
+          type="button"
           onClick={toggleLanguage}
-          className="px-2.5 py-1 text-xs font-bold rounded-lg border border-outline/30 bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors"
+          className="px-2.5 py-1 text-xs font-bold rounded-lg border border-outline/30 bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors outline-none cursor-pointer"
           title={i18n.t('language', 'Language')}
         >
           {currentLang.toUpperCase()}

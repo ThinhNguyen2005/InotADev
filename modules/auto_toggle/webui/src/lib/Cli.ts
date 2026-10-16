@@ -32,7 +32,7 @@ export class Cli {
   }
 
   static async toggleAdb(enable: boolean): Promise<boolean> {
-    const targetMode = enable ? 'auto' : 'off'
+    const targetMode = enable ? 'on' : 'off'
     const cmd = `sed -i "s/^MODE=.*/MODE=${targetMode}/" ${CONF_FILE} 2>/dev/null || echo "MODE=${targetMode}" >> ${CONF_FILE}`
     const { errno } = await exec(cmd)
     return errno === 0

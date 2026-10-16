@@ -605,6 +605,9 @@ fn main() {
                 }
             } else if uevent_fd < 0 {
                 2000
+            } else if cfg.only_unlocked && usb_connected && current_state != Some(true) {
+                // Đang cắm USB nhưng màn hình khóa -> cần thăm dò 1.5s để bật ADB ngay khi mở khóa
+                1500
             } else {
                 -1
             };
