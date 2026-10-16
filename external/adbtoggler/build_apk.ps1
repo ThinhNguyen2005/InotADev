@@ -141,7 +141,8 @@ if (-not (Test-Path $keystore)) {
     & "$keytool" -genkey -v -keystore $keystore -alias adbtoggler -keyalg RSA -keysize 2048 -validity 10000 -storepass adbtoggler -keypass adbtoggler -dname "CN=InotADev, O=InotADev, C=VN"
 }
 
-& "$apksigner" sign --ks $keystore --ks-key-alias adbtoggler --ks-pass pass:adbtoggler --key-pass pass:adbtoggler --out $finalApk $alignedApk
+& "$apksigner" sign --ks $keystore --ks-key-alias adbtoggler --ks-pass pass:adbtoggler --key-pass pass:adbtoggler --v4-signing-enabled false --out $finalApk $alignedApk
+Remove-Item "$finalApk.idsig" -Force -ErrorAction SilentlyContinue
 
 Write-Host "`n=== BUILD SUCCESSFUL ==="
 Write-Host "Final APK generated at: $finalApk"

@@ -1,101 +1,123 @@
-# HideDevMode & AutoToggle — Giải pháp ẩn Developer Mode & ADB toàn diện cho Android
+# AutoToggle ADB — Giải pháp Tự động hóa & Bảo mật ADB Toàn diện cho Android
 
-Dự án này cung cấp hai giải pháp độc lập nhằm hỗ trợ các nhà phát triển (Developers) và người dùng nâng cao vượt qua cơ chế phát hiện **Chế độ nhà phát triển (Developer Options)** và **USB Debugging (ADB)** từ các ứng dụng ngân hàng, tài chính hoặc bảo mật cao trên thiết bị Android đã Root.
+**AutoToggle ADB v2.1.0** là giải pháp tối ưu dành cho các thiết bị Android đã Root (**KernelSU / KernelSU Next / APatch / Magisk**), giúp tự động hóa hoàn toàn trạng thái bật/tắt **Gỡ lỗi USB (ADB)** và **Wireless ADB** dựa trên kết nối phần cứng thực tế và trạng thái màn hình.
+
+Mục tiêu cốt lõi: **ADB chỉ mở khi bạn thực sự cắm cáp kết nối với Máy tính (PC)** và tự động tắt ngay lập tức khi rút cáp hoặc khóa máy. Nhờ đó, thiết bị vượt qua **100% cơ chế quét kiểm tra ADB** từ các ứng dụng ngân hàng, ví điện tử, tài chính và ứng dụng định danh bảo mật cao (VNeID, Techcombank, Vietcombank, Momo, Viettel Money...) mà không cần "nói dối" hay hook can thiệp nguy hiểm vào hệ thống.
 
 ---
 
-## 📊 1. So sánh các giải pháp
+## 🌟 Điểm nổi bật ở phiên bản v2.1.0
 
-| Tiêu chí | 🚀 Module **AutoToggle** (Khuyên dùng) | 🛡️ Module **HideDevMode (Zygisk)** | 📱 Ứng dụng **AdbToggler** (Phím tắt) |
+- 🦀 **Rust Daemon Native (ARM64)**: Viết lại toàn bộ daemon cốt lõi bằng Rust 2021, chạy với quyền root qua socket Linux `NETLINK_KOBJECT_UEVENT` + `inotify` + `poll(-1)`. Tiêu thụ CPU và pin ở chế độ chờ đạt mức **0.00%**.
+- 🎨 **WebUI Material You (M3)**: Giao diện trực quan tích hợp sẵn trong trình quản lý KernelSU Next / KernelSU / APatch / Magisk. Hỗ trợ đầy đủ **Tiếng Việt** và Tiếng Anh (i18n), thiết kế chuẩn Material 3 với biểu tượng vector SVG, không sử dụng emoji đồ họa.
+- 📱 **Companion APK Siêu Nhẹ (~33 KB)**: Ứng dụng đồng hành viết bằng **Kotlin thuần** kèm Quick Settings Tile (Phím tắt Cài đặt nhanh) 1-chạm, tối ưu kích thước bằng R8 Tree-Shaking.
+- 🛡️ **Kiến trúc Single Source of Truth**: Loại bỏ hoàn toàn xung đột race-condition giữa UI và Daemon. WebUI và Quick Tile chỉ ghi nhận ý định người dùng (`MODE`), Daemon là đơn vị duy nhất điều khiển hệ thống.
+- 🔒 **Khóa đơn tiến trình (`flock`) & Chống Crash-Loop**: Bảo vệ bằng `libc::flock(LOCK_EX | LOCK_NB)` chống chạy đè tiến trình; giám sát watchdog dựa trên đồng hồ monotonic uptime (`/proc/uptime`), chống sai lệch giờ do đồng bộ NTP.
+- 🔄 **Khôi phục an toàn khi gỡ module (`uninstall.sh`)**: Tự động trả `development_settings_enabled` và `adb_enabled` về trạng thái an toàn ban đầu, đảm bảo không bị ẩn menu Cài đặt nhà phát triển sau khi gỡ module.
+
+---
+
+## 📊 So sánh các cơ chế bảo vệ ADB
+
+| Tiêu chí | 🚀 **AutoToggle ADB v2.1** (Khuyên dùng) | ⚠️ Hook Zygisk (Nói dối bộ nhớ) | 📱 Bật/Tắt Thủ công |
 | :--- | :--- | :--- | :--- |
-| **Mô tả** | Tự động hóa ADB dựa trên sạc phần cứng. | Hook ẩn Developer Options / ADB đối với các app được chọn. | Bật/tắt ADB chủ động bằng 1-chạm hoặc Control Center Tile. |
-| **Cơ chế hoạt động** | Tắt thật ADB khi không kết nối PC (Daemon). | Nói dối bộ nhớ qua libc hook. | Tắt/Bật thật ADB theo lệnh thủ công qua Root (`su`). |
-| **Độ tin cậy** | **100% Tuyệt đối** (Do ADB thật bị tắt, app quét sẽ thấy bằng `0`). | Rất cao (Có thể bị lọt nếu app dùng các cơ chế quét phức tạp đi qua Binder). | **100% Tuyệt đối** (Tắt thật bằng hệ thống). |
-| **Tiêu hao Pin** | **0.000%** (Cực thấp, ngủ sâu). | **0%** (Không chạy ngầm). | **0%** (Chỉ hoạt động khi nhấn nút). |
-| **Tính tiện dụng** | Cắm PC: Tự động BẬT.<br>Rút PC: Tự động TẮT. | Luôn bật 24/7 mà không ảnh hưởng tới app ngân hàng. | Nhấn icon màn hình chính hoặc nhấn Tile trên Control Center. |
-| **Giao diện WebUI** | **Có Dashboard** (Hiển thị PID, trạng thái sạc, logs trực tiếp). | **Không cần thiết** (Tự động 100%). | **Không cần thiết** (Tự động cập nhật trạng thái trên Tile). |
+| **Bản chất kỹ thuật** | **Tắt thật ADB cấp hệ điều hành** khi không cắm PC. | Hook API libc / JNI để trả về `adb_enabled = 0`. | Người dùng tự vào Cài đặt để bật/tắt thủ công. |
+| **Khả năng qua mặt App** | **100% Tuyệt đối** (Vì ADB thực sự tắt, app quét bằng bất kỳ hàm nào cũng thấy = `0`). | Dễ bị phát hiện nếu app quét qua Binder, IPC hoặc kiểm tra tamper bộ nhớ. | 100% (nếu người dùng nhớ tắt). |
+| **Tiêu hao Pin / CPU** | **0.00%** (Sử dụng `poll(-1)` ngủ sâu ở kernel, chỉ thức dậy khi có uevent USB). | 0% (nhưng có nguy cơ xung đột zygote/app). | 0%. |
+| **Sạc pin thông thường** | Tự động nhận biết củ sạc thường / sạc dự phòng để **giữ ADB TẮT**. | Không phân biệt được loại sạc. | Phải tự nhớ tắt. |
+| **Giao diện quản lý** | **WebUI M3** trong KSU Manager + **Quick Tile** thanh trạng thái. | Cần app cấu hình danh sách DenyList riêng. | Menu Settings Android. |
 
 ---
 
-## 🛠️ 2. Cấu trúc Dự án
+## 🛠️ Cấu trúc Mã nguồn Dự án
 
 ```
 InotADev/
-├── build.ps1                # Script PowerShell tự động biên dịch và đóng gói (.zip & .apk)
-├── jni/                     # Mã nguồn C++ của module Zygisk (HideDevMode)
-│   ├── CMakeLists.txt
+├── daemon-rs/                      # Mã nguồn Rust Daemon (aarch64-linux-android)
+│   ├── Cargo.toml
 │   └── src/
-│       ├── main.cpp             # Entrypoint module Zygisk
-│       └── hook_properties.cpp  # Hook libc __system_property_get, _read, _read_callback
+│       └── main.rs                 # Netlink uevent filter + inotify + flock + watchdog
 ├── modules/
-│   ├── hide_devmode/        # Bản thô của module HideDevMode Magisk
-│   └── auto_toggle/         # Bản thô của module AutoToggle Magisk
+│   └── auto_toggle/                # Module Root (KernelSU / APatch / Magisk)
+│       ├── action.sh               # Nút hành động nhanh trong KSU Manager
+│       ├── customize.sh            # Script cài đặt & phân quyền module
+│       ├── module.prop             # Metadata module (chuẩn Magisk/KSU)
+│       ├── service.sh              # Service late_start giám sát daemon bằng monotonic uptime
+│       ├── uninstall.sh            # Dọn dẹp & khôi phục an toàn hệ thống khi gỡ
+│       ├── webroot/                # Bundle WebUI tĩnh đã build
+│       └── webui/                  # Mã nguồn React + TypeScript + Material Web M3
+│           ├── src/
+│           └── public/locales/     # Bộ từ điển i18n (vi.xml, en.xml)
 ├── external/
-│   └── adbtoggler/          # Mã nguồn ứng dụng AdbToggler.apk
-└── dist/                    # Chứa thành phẩm dạng .zip và .apk sau khi build
+│   └── adbtoggler/                 # Companion App & Quick Settings Tile
+│       ├── AndroidManifest.xml
+│       ├── build_apk.ps1           # Pipeline build APK bằng Android SDK + kotlinc + R8
+│       ├── res/                    # Layout Material 3, colors, strings (EN/VI)
+│       └── src/com/inotadev/adbtoggler/
+│           ├── MainActivity.kt     # Dashboard giao diện Hero Card Material 3
+│           ├── AdbTileService.kt   # Quick Settings Tile Service
+│           └── Constants.kt        # Hằng số hệ thống & Enum DaemonMode
+├── build.ps1                       # Script tổng tự động build toàn bộ dự án
+└── dist/                           # Thư mục chứa thành phẩm sau khi build
+    ├── auto_toggle_v2.1.zip        # Module flash qua KernelSU / APatch / Magisk
+    └── AdbToggler.apk              # Ứng dụng phím tắt Tile siêu nhẹ (~33 KB)
 ```
 
 ---
 
-## 🚀 3. Hướng dẫn Biên dịch & Đóng gói (Build)
+## 🚀 Hướng dẫn Biên dịch (Build)
 
-### 3.1 Yêu cầu môi trường
-* **Android NDK** (khuyên dùng bản r25c trở lên) và **CMake** (cài đặt qua Android Studio).
-* Đặt biến môi trường `ANDROID_NDK_HOME` trỏ tới thư mục cài đặt NDK.
+### 1. Yêu cầu môi trường
+1. **Android SDK**: `build-tools` (aapt2, d8/r8, zipalign, apksigner) và `platforms` (android.jar).
+2. **Android NDK**: Toolchain LLVM Clang cho kiến trúc `aarch64-linux-android` (API 26+).
+3. **Rust & Cargo**:
+   ```powershell
+   rustup target add aarch64-linux-android
+   ```
+4. **Node.js & pnpm**: Để biên dịch WebUI (React + Vite).
 
-### 3.2 Lệnh build tự động
-### 3.2 Lệnh build tự động
-Chạy lệnh PowerShell tại thư mục gốc của dự án để đóng gói cả ba thành phần:
+### 2. Biên dịch toàn bộ chỉ với 1 lệnh
+Mở PowerShell tại thư mục gốc dự án và chạy:
 ```powershell
-pwsh ./build.ps1
+.\build.ps1
 ```
-*(Nếu muốn build riêng lẻ, bạn có thể dùng `-Only auto_toggle`, `-Only hide_devmode` hoặc `-Only adb_toggler`)*
 
-Thành phẩm sẽ xuất hiện trong thư mục `dist/` bao gồm:
-* `dist/auto_toggle.zip` (Module tự động hóa ADB dựa trên sạc phần cứng)
-* `dist/hide_devmode.zip` (Module Zygisk ẩn Dev Mode)
-* `dist/AdbToggler.apk` (Ứng dụng phím tắt Control Center & Launcher siêu nhẹ - chỉ 12.8 KB)
+Quy trình tự động thực hiện:
+1. **Build Rust Daemon**: Biên dịch `daemon-rs` sang nhị phân `auto_toggle_d` (ARM64 release).
+2. **Build WebUI**: Biên dịch TypeScript + Vite xuất bundle tĩnh ra `modules/auto_toggle/webroot/`.
+3. **Đóng gói Module Zip**: Tạo file `dist/auto_toggle_v2.1.zip` theo chuẩn Magisk/KSU (định dạng đường dẫn Unix `/`).
+4. **Build AdbToggler APK**: Biên dịch `R.java`, mã nguồn Kotlin bằng `kotlinc`, tối ưu hóa bằng `R8 Tree-Shaking`, zipalign và ký APK thành `dist/AdbToggler.apk`.
 
----
-
-## 🤖 4. Chi tiết kỹ thuật & Cơ chế hoạt động của AutoToggle
-
-Module **AutoToggle** được thiết kế lại hoàn toàn để loại bỏ các logic giám sát phức tạp trước đây (như Logcat, Binder Monitor hay WebUI). Script hoạt động dựa trên cơ chế **Kiểm tra sạc một lần duy nhất** để triệt tiêu hoàn toàn điện năng tiêu thụ:
-
-1. **Khi thiết bị không sạc (Chạy bằng pin):**
-   * ADB được giữ ở trạng thái **TẮT** (Disabled).
-   * Daemon ngủ đông và chỉ đọc một file sysfs cực kỳ nhẹ (`/sys/class/power_supply/...`) để phát hiện nguồn điện cắm vào. Lượng CPU sử dụng bằng **0%**.
-2. **Khi phát hiện cắm sạc (Power Connected):**
-   * Hệ thống sẽ chạy một vòng lặp nhỏ trong tối đa 5 giây đầu (mỗi giây thử lại 1 lần) để chờ quá trình **bắt tay USB (USB Handshake)** hoàn tất.
-   * Nếu nhận diện thấy trạng thái `CONFIGURED` (được cắm vào Máy tính/PC): Tự động **BẬT** ADB.
-   * Nếu chỉ cắm vào **củ sạc thường hoặc sạc dự phòng**: Giữ ADB **TẮT** và ngừng hoàn toàn việc kiểm tra USB trong suốt phiên sạc đó.
-3. **Khi phát hiện rút sạc (Power Disconnected):**
-   * Ngay lập tức tắt ADB và quay lại chế độ ngủ đông tiết kiệm pin.
+> **Lưu ý về chữ ký APK**: Script build sử dụng `apksigner` với tùy chọn `--v4-signing-enabled false` để xuất ra duy nhất file `.apk` độc lập hoàn chỉnh, không phát sinh file rác `.idsig`.
 
 ---
 
-## ⚙️ 5. Cài đặt & Sử dụng
+## ⚙️ Hướng dẫn Cài đặt & Sử dụng
 
-1. **Đối với Module Magisk (.zip):**
-   * Flash file zip tương ứng (`auto_toggle.zip` hoặc `hide_devmode.zip`) thông qua ứng dụng quản lý Root (KernelSU / APatch / Magisk Manager).
-   * Khởi động lại thiết bị.
-2. **Đối với Ứng dụng AdbToggler (.apk):**
-   * Cài đặt file [AdbToggler.apk](file:///d:/Root/InotADev/dist/AdbToggler.apk) có trong thư mục `dist/`.
-   * Cấp quyền **Root (Superuser)** khi mở ứng dụng lần đầu tiên ngoài Màn hình chính.
+### Bước 1: Flash Module Root
+1. Mở ứng dụng **KernelSU / KernelSU Next / APatch / Magisk**.
+2. Chọn mục **Module** -> **Cài đặt từ bộ nhớ**.
+3. Chọn file `dist/auto_toggle_v2.1.zip` và tiến hành flash.
+4. Khởi động lại thiết bị.
+
+### Bước 2: Cài đặt Companion App & Thêm Quick Settings Tile (Tùy chọn)
+1. Cài đặt file `dist/AdbToggler.apk`.
+2. Vuốt mở thanh **Cài đặt nhanh (Quick Settings / Control Center)** trên điện thoại.
+3. Nhấn nút **Sửa / Chỉnh sửa phím tắt (Edit Tiles)**.
+4. Kéo phím tắt **ADB Toggle** lên danh sách các ô hoạt động.
+5. Giờ đây bạn có thể xem trạng thái `[BẬT]` / `[TẮT]` trực tiếp trên thanh thông báo và chạm để chuyển đổi nhanh bất kỳ lúc nào.
+
+### Bước 3: Truy cập WebUI cấu hình nâng cao
+- Đối với **KernelSU / KernelSU Next / APatch**: Mở ứng dụng quản lý root -> Chọn module **AutoToggle ADB** -> Nhấn **WebUI**.
+- Giao diện cho phép:
+  - Xem trạng thái kết nối phần cứng và lý do kích hoạt theo thời gian thực.
+  - Chọn chế độ: **Tự động (Auto)**, **Luôn bật (Always ON)** hoặc **Luôn tắt (Always OFF)**.
+  - Điều chỉnh thời gian trễ ngắt kết nối (Debounce delay 1 - 15 giây) để tránh chập chờn khi cắm rút cáp.
+  - Tự động tắt Wireless ADB hoặc ẩn Developer Settings khi rút cáp.
+  - Xem trực tiếp Terminal Logs từ daemon.
 
 ---
 
-## 📱 6. Hướng dẫn sử dụng AdbToggler (Phím tắt bật/tắt nhanh)
-
-**AdbToggler** cung cấp hai cách điều khiển cực kỳ linh hoạt:
-
-1. **Màn hình chính (Launcher Icon):**
-   * Khi bạn nhấn vào biểu tượng ứng dụng ngoài màn hình chính, nó sẽ tự động chạy ngầm dưới giao diện trong suốt hoàn toàn, đổi ngược trạng thái ADB hiện tại và kết thúc ngay tức khắc (không hiển thị cửa sổ hay gây giật nháy màn hình).
-   * Thông báo Toast dạng `Gỡ lỗi USB: ĐÃ BẬT` hoặc `Gỡ lỗi USB: ĐÃ TẮT` sẽ hiện lên tức thì.
-
-2. **Thanh Trung tâm điều khiển (Quick Settings / Control Center Tile):**
-   * Mở rộng thanh trạng thái / Trung tâm điều khiển trên điện thoại của bạn.
-   * Nhấn vào biểu tượng **Chỉnh sửa phím tắt (Edit)**.
-   * Tìm phím tắt có tên **ADB Toggle** (hình con bọ robot Android màu xanh lá cây) và kéo nó lên khu vực các phím tắt đang hoạt động.
-   * Nhấn **Lưu (Done)**.
-   * Từ bây giờ, bạn có thể bật/tắt nhanh ADB trực tiếp chỉ với 1-chạm từ Control Center. Trạng thái bật/tắt (sáng/tối) sẽ tự động đồng bộ theo thời gian thực.
+## 📜 Giấy phép & Tác giả
+- **Tác giả**: [ThinhNguyen2005](https://github.com/ThinhNguyen2005)
+- **Giấy phép**: Mã nguồn mở phục vụ mục đích học tập và phát triển cá nhân.
